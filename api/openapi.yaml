@@ -1,0 +1,1109 @@
+openapi: 3.1.0
+
+info:
+  title: Velké konflikty — příprava porady API
+  version: 0.1.0
+  description: |
+    Backend API for the weekly dev/analysis meeting preparation tool.
+
+    ## Conventions
+
+    * All paths are served under `/api`.
+    * **Every `GET` endpoint is public** — no authentication is required to read anything,
+      including problems, attachments and meeting agendas.
+    * **Every mutating endpoint requires a session cookie.** Endpoints marked
+      `x-role: admin` additionally require the session's user to have the `admin` role.
+    * Timestamps are RFC 3339 in UTC (`2026-09-16T08:30:00Z`); plain dates are `YYYY-MM-DD`.
+    * Errors always use the `Error` schema. `error.message` is Czech and safe to display
+      directly to the user; `error.code` is a stable machine-readable token.
+    * The service runs on a trusted internal network. Authentication separates "can edit"
+      from "can look" and is deliberately not hardened — see the PRD, non-goal N1.
+    * The session is **sliding**: every authenticated request that finds a valid session
+      extends its `expires_at` and re-sends `Set-Cookie` with a fresh
+      `Max-Age = SESSION_TTL_HOURS × 3600`, so the browser's copy never expires before the
+      server's. Any authenticated response may therefore carry a `Set-Cookie` header.
+
+servers:
+  - url: /api
+    description: |
+      Same-origin base — what the browser always uses, in development and in production.
+      The Vite dev server on 9999 proxies `/api` to the Go listener on 9998; in production
+      the SPA listener on 9999 routes `/api` to the same in-process handler. Root-relative
+      `/api/...` URLs therefore resolve identically in both environments.
+  - url: http://localhost:9998/api
+    description: The API listener itself, for direct (non-browser) calls.
+
+tags:
+  - name: auth
+    description: Session login and the current user
+  - name: problems
+    description: The bucket of problems collected during the week
+  - name: attachments
+    description: Screenshots and short videos belonging to a problem
+  - name: meetings
+    description: Weekly meetings and their ordered agendas
+  - name: system
+    description: Health and runtime information
+
+paths:
+
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: The service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, const: ok }
+                  version: { type: string, example: 0.1.0 }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Log in and start a session
+      description: |
+        Verifies the credentials against the accounts configured in the `AUTH_USERS`
+        environment variable and, on success, stores a session row in SQLite and sets its
+        opaque token in an `HttpOnly` cookie named `session`. A failed attempt is answered
+        after a delay of roughly one second. There is no lockout.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: admin }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Logged in
+          headers:
+            Set-Cookie:
+              description: |
+                Session cookie, e.g. `session=<opaque>; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000`.
+                `Max-Age` is always `SESSION_TTL_HOURS × 3600` (2592000 with the default 720 h),
+                and the header is re-sent on every request that refreshes the session, so an
+                actively used session is never dropped by the browser while the server still
+                considers it valid.
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Wrong username or password
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: invalid_credentials
+                  message: Nesprávné jméno nebo heslo.
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: End the current session
+      description: Invalidates the session server-side and clears the cookie. Calling it without a session is a no-op.
+      security: []
+      responses:
+        '204':
+          description: Logged out
+          headers:
+            Set-Cookie:
+              description: Expired session cookie
+              schema: { type: string }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Who am I
+      description: Returns the signed-in user, or `null` for an anonymous visitor. The frontend calls this on start-up to decide which controls to render.
+      security: []
+      responses:
+        '200':
+          description: The current user, or null when not logged in
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: 'null'
+
+  /problems:
+    get:
+      tags: [problems]
+      summary: List problems (the bucket)
+      description: |
+        Returns problems ordered newest-first. The dataset is small (low hundreds of rows
+        over years), so there is no pagination.
+      security: []
+      parameters:
+        - name: done
+          in: query
+          description: Filter by resolution state. Omit for all problems; the UI's default view sends `false`.
+          schema: { type: boolean }
+        - name: q
+          in: query
+          description: |
+            Case- and diacritics-insensitive substring filter over title and description.
+            SQLite's `LIKE`/`NOCASE` folds ASCII only, so it cannot do this for Czech text and
+            is not used for `q`: the handler loads the (deliberately tiny — low hundreds of
+            rows) candidate set and filters in Go, comparing both sides after Unicode NFD
+            normalisation with combining marks dropped and case folded. `reseni` therefore
+            matches `řešení`, and `Č` matches `č`.
+          schema: { type: string }
+        - name: scheduled
+          in: query
+          description: '`true` returns only problems that have already appeared on at least one meeting; `false` only problems that never have.'
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [created_desc, created_asc, meetings_desc]
+            default: created_desc
+      responses:
+        '200':
+          description: Matching problems
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Problem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+    post:
+      tags: [problems]
+      summary: Create a problem
+      description: |
+        Any authenticated user. `created_by` is taken from the session and cannot be supplied
+        by the client.
+
+        Two request shapes are accepted. `application/json` creates a problem with no
+        attachments. `multipart/form-data` creates the problem **and** its attachments in one
+        atomic request — this is what the *Přidat problém* form sends, so screenshots pasted
+        from the clipboard (PRD FR-T2) do not need the problem to exist first. The `file`
+        parts follow the rules of `POST /problems/{problemId}/attachments`; if any part is
+        rejected the whole request fails and no problem, row or file is left behind.
+
+        Because that atomicity forces the server to stage the whole request before it commits
+        anything, the multipart shape is bounded on **three** axes, not just per file: each
+        part is at most `MAX_UPLOAD_BYTES`, a request carries at most
+        `MAX_ATTACHMENTS_PER_REQUEST` parts, and the whole body is at most
+        `MAX_REQUEST_BYTES`. The per-file limit alone is not enough — unlimited 99 MB parts
+        multiply into a multi-gigabyte body that has to be held somewhere.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProblemCreate' }
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ProblemCreate'
+                - type: object
+                  properties:
+                    file: { $ref: '#/components/schemas/UploadParts' }
+            encoding:
+              file:
+                contentType: '*/*'
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema: { type: string, example: /api/problems/42 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+
+  /problems/{problemId}:
+    parameters:
+      - $ref: '#/components/parameters/ProblemId'
+    get:
+      tags: [problems]
+      summary: Get one problem with its attachments and meeting history
+      security: []
+      responses:
+        '200':
+          description: The problem
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [problems]
+      summary: Update a problem
+      description: |
+        Any authenticated user may edit the title, description and link — any user may edit
+        any problem, deleting is admin-only (PRD decision log, Q2). `done` is **not**
+        settable here — use `POST`/`DELETE`
+        `/problems/{problemId}/done`, which is admin-only.
+
+        Mirrors `POST /problems`: `application/json` edits the fields alone, while
+        `multipart/form-data` edits them **and** appends newly pasted attachments in the same
+        atomic request, under the same three caps. Without that shape the edit form would
+        have to issue a `PATCH` plus one `POST /problems/{problemId}/attachments` per pasted
+        screenshot, and a failure partway through would leave exactly the half-applied state
+        the create path exists to prevent — PRD FR-T2 requires the form to behave the same
+        whether the problem already exists or not. Existing attachments are untouched;
+        removing one is still `DELETE /attachments/{attachmentId}`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProblemUpdate' }
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ProblemUpdate'
+                - type: object
+                  properties:
+                    file: { $ref: '#/components/schemas/UploadParts' }
+            encoding:
+              file:
+                contentType: '*/*'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+    delete:
+      tags: [problems]
+      summary: Delete a problem
+      description: |
+        Admin only. Cascades: the problem's attachments (including the files on disk) and
+        every agenda entry referencing it — together with those entries' notes — are
+        removed. Every meeting that loses an entry has its remaining items renumbered to stay
+        contiguous, in the same transaction, exactly as
+        `DELETE /meetings/{slug}/items/{itemId}` does — otherwise the agenda would render as
+        1, 3, 4. The client is expected to show which meetings are affected first; the
+        response to `GET /problems/{problemId}` carries that list.
+      x-role: admin
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /problems/{problemId}/done:
+    parameters:
+      - $ref: '#/components/parameters/ProblemId'
+    post:
+      tags: [problems]
+      summary: Mark a problem as done
+      description: Admin only. Sets `done`, `done_at` and `done_by`. Idempotent. The problem leaves the bucket but stays visible on every agenda it appeared on.
+      x-role: admin
+      responses:
+        '200':
+          description: Marked done
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [problems]
+      summary: Mark a problem as not done again
+      description: Admin only. Clears `done`, `done_at` and `done_by`, returning the problem to the bucket. Idempotent.
+      x-role: admin
+      responses:
+        '200':
+          description: Reopened
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /problems/{problemId}/attachments:
+    parameters:
+      - $ref: '#/components/parameters/ProblemId'
+    post:
+      tags: [attachments]
+      summary: Upload an attachment
+      description: |
+        Any authenticated user. `multipart/form-data` with a single `file` part. Images
+        pasted from the clipboard arrive here too, with a generated file name.
+
+        **Any content type is accepted** — screenshots and screen recordings are the common
+        case, but logs, PDFs, exports and documents are allowed as well. The only limit is
+        `MAX_UPLOAD_BYTES` (100 MB by default). The bytes are written to
+        `DATA_DIR/attachments/<uuid>.<ext>`; only the metadata below is stored in SQLite.
+
+        The submitted file name never reaches the filesystem. `<ext>` is derived from the
+        resolved content type against a fixed table and falls back to `bin`, so it can never
+        contain a path separator, `..` or any other traversal; `filename` is kept purely as
+        metadata, stripped of its directory part and of control characters, truncated to 255
+        characters, and emitted on download through RFC 5987 `filename*` encoding.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  contentMediaType: application/octet-stream
+            encoding:
+              file:
+                contentType: '*/*'
+      responses:
+        '201':
+          description: Uploaded
+          headers:
+            Location:
+              schema: { type: string, example: /api/attachments/17/content }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Attachment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+
+  /attachments/{attachmentId}:
+    parameters:
+      - $ref: '#/components/parameters/AttachmentId'
+    delete:
+      tags: [attachments]
+      summary: Delete an attachment
+      description: Any authenticated user. Removes both the metadata row and the file on disk.
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /attachments/{attachmentId}/content:
+    parameters:
+      - $ref: '#/components/parameters/AttachmentId'
+    get:
+      tags: [attachments]
+      summary: Download or stream an attachment
+      description: |
+        Public. Served with the stored content type and `Accept-Ranges: bytes`, so videos
+        can be scrubbed and images cached.
+
+        `image/*` — **except `image/svg+xml` and `image/svg`** — and `video/*` are served
+        inline. **Every other content type, SVG included, is served with
+        `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`**, so an
+        uploaded `.html` or `.svg` cannot execute inside the app's own origin. SVG is a
+        scriptable document rather than a picture, and `nosniff` does not help when the
+        declared type is genuinely `image/svg+xml`, so it must not take the inline branch.
+        `?download=1` forces the attachment disposition for media types too.
+      security: []
+      parameters:
+        - name: download
+          in: query
+          schema: { type: boolean, default: false }
+        - name: Range
+          in: header
+          required: false
+          description: |
+            Standard RFC 7233 byte range, e.g. `bytes=1048576-2097151`. This is what the
+            browser sends when the user scrubs a video; answering it is the whole reason the
+            endpoint streams from a real file instead of a BLOB.
+          schema: { type: string, example: bytes=0-1023 }
+      responses:
+        '200':
+          description: |
+            The whole file, served with the stored content type. The response's media type is
+            the attachment's own `content_type` — the keys below are ranges, not a promise
+            that every file is `application/octet-stream`. A `Content-Type` entry under
+            `headers` would be dropped: the OpenAPI Response Object says a response header
+            named `Content-Type` SHALL be ignored, because the media type belongs in `content`.
+          headers:
+            Content-Length: { schema: { type: integer, format: int64 } }
+            Accept-Ranges: { schema: { type: string, const: bytes } }
+            Content-Disposition: { schema: { type: string } }
+            Cache-Control: { schema: { type: string } }
+            ETag: { schema: { type: string } }
+            X-Content-Type-Options:
+              description: Sent as `nosniff` on every response that is not an inline image or video.
+              schema: { type: string, const: nosniff }
+          content:
+            image/*: {}
+            video/*: {}
+            application/octet-stream: {}
+        '206':
+          description: Partial content — the answer to a `Range` request.
+          headers:
+            Content-Range:
+              description: Mandatory on a 206, e.g. `bytes 1048576-2097151/8388608`.
+              schema: { type: string, example: bytes 0-1023/184320 }
+            Content-Length: { schema: { type: integer, format: int64 } }
+            Accept-Ranges: { schema: { type: string, const: bytes } }
+            Content-Disposition: { schema: { type: string } }
+          content:
+            image/*: {}
+            video/*: {}
+            application/octet-stream: {}
+        '404': { $ref: '#/components/responses/NotFound' }
+        '416':
+          description: The requested range lies outside the file.
+          headers:
+            Content-Range:
+              description: The unsatisfied-range form, e.g. `bytes */184320`.
+              schema: { type: string, example: bytes */184320 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: range_not_satisfiable
+                  message: Požadovaná část souboru neexistuje.
+
+  /meetings:
+    get:
+      tags: [meetings]
+      summary: List meetings
+      description: |
+        Public. Newest meeting first. The default filter is **one-sided**: every meeting with
+        `meeting_date >= today − ARCHIVE_AFTER_DAYS` (365 days) is returned, which is the same
+        rule as `archived == false`. It is not a window — a meeting dated in the future is
+        never filtered out, and it must not be, because the meeting being prepared for the
+        coming week is always future-dated and is the one agenda the list exists to surface.
+        Older meetings are archived — a pure view filter derived from `meeting_date`. Nothing
+        is ever moved or deleted and
+        `GET /meetings/{slug}` keeps working for archived meetings forever, so shared links
+        never break.
+      security: []
+      parameters:
+        - name: include_archived
+          in: query
+          description: '`true` returns every meeting ever held — what the *Zobrazit archiv* toggle sends.'
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: All meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Meeting' }
+    post:
+      tags: [meetings]
+      summary: Create a meeting
+      description: |
+        Admin only. The client supplies the date and optionally a general note; `slug` is
+        derived server-side from the ISO week of `meeting_date` (zero-padded, e.g.
+        `2026-w05`) and frozen, while `iso_year` and `iso_week` are computed from
+        `meeting_date` on every read. If the ISO week already has a meeting, the slug gets a
+        numeric suffix starting at `-2` (`2026-w38-2`).
+
+        **Both halves of the slug come from the same ISO call.** The year is the ISO
+        *week-numbering* year — Go's `time.ISOWeek()` returns the pair, and both values must be
+        taken from it. It is **not** `meeting_date`'s calendar year, which disagrees with the
+        ISO year at every year boundary: a meeting on `2027-01-01` falls in ISO `2026-W53`, so
+        the slug is `2026-w53`, and a meeting on `2025-12-29` falls in ISO `2026-W01`, so the
+        slug is `2026-w01`. Pairing the calendar year with the ISO week number instead would
+        emit `2027-w53` for a year that has no week 53, and would collide `2025-12-29` with
+        the meeting of `2025-01-02` — both would claim `2025-w01` and trip the `UNIQUE`
+        constraint on `meetings.slug`, or silently take a `-2` suffix meant for two meetings
+        in one week while these two are a year apart. `iso_year` is derived the same way.
+      x-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [meeting_date]
+              properties:
+                meeting_date:
+                  type: string
+                  format: date
+                  example: '2026-09-18'
+                note:
+                  type: string
+                  default: ''
+                  description: Optional free text about the meeting as a whole.
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location:
+              schema: { type: string, example: /api/meetings/2026-w38 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeetingDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /meetings/{slug}:
+    parameters:
+      - $ref: '#/components/parameters/MeetingSlug'
+    get:
+      tags: [meetings]
+      summary: Get a meeting with its full ordered agenda
+      description: |
+        Public — this is the endpoint behind the shareable URL. Items come back ordered by
+        `position` ascending, each with the whole problem embedded so the page renders in
+        one round trip.
+      security: []
+      responses:
+        '200':
+          description: The meeting
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeetingDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [meetings]
+      summary: Change the meeting date or its general note
+      description: |
+        Admin only. Omitted fields are left unchanged. The slug is **not** regenerated when
+        the date changes, so links shared earlier keep working — the slug is the one frozen
+        copy of the creation week. `iso_year` and `iso_week` are *always* derived from the
+        current `meeting_date` and never stored, so after a date change the response and the
+        week label follow the new date while the URL keeps the old slug. That is the only
+        divergence, and it is deliberate.
+      x-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                meeting_date: { type: string, format: date }
+                note: { type: string }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeetingDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [meetings]
+      summary: Delete a meeting
+      description: Admin only. Removes the agenda entries and their notes; the problems themselves are untouched and stay in the bucket.
+      x-role: admin
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /meetings/{slug}/items:
+    parameters:
+      - $ref: '#/components/parameters/MeetingSlug'
+    post:
+      tags: [meetings]
+      summary: Put one or more problems on the agenda
+      description: |
+        Admin only. Accepts several problem ids in one call, matching the multi-select
+        picker in the UI. New items are appended in the given order after the existing
+        ones. A problem already on this agenda is rejected — the picker disables those.
+      x-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [problem_ids]
+              properties:
+                problem_ids:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items: { type: integer, format: int64 }
+                  description: Each problem id at most once; a repeated id is a `400`, not a `409`.
+                  example: [42, 43, 51]
+      responses:
+        '201':
+          description: The items that were created
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MeetingItem' }
+        '400':
+          description: Malformed body, or the same problem id given twice
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: validation_failed
+                  message: Každý problém lze přidat jen jednou.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: One of the problems is already on this agenda
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: already_on_agenda
+                  message: Problém už je na programu této porady.
+
+  /meetings/{slug}/items/order:
+    parameters:
+      - $ref: '#/components/parameters/MeetingSlug'
+    put:
+      tags: [meetings]
+      summary: Reorder the agenda
+      description: |
+        Admin only. The body is the complete list of this meeting's item ids in the desired
+        order; the server rewrites all `position` values in one transaction. Sending a
+        partial or foreign list is a `400`. This is what drag-and-drop calls on drop.
+      x-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_ids]
+              properties:
+                item_ids:
+                  type: array
+                  uniqueItems: true
+                  items: { type: integer, format: int64 }
+                  description: Every item id of this meeting, exactly once, in the new order. A repeated or missing id is a `400`.
+                  example: [7, 3, 9, 4]
+      responses:
+        '200':
+          description: The reordered agenda
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MeetingItem' }
+        '400':
+          description: The id list does not match this meeting's items exactly
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example:
+                error:
+                  code: invalid_order
+                  message: Seznam pořadí neodpovídá bodům této porady.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /meetings/{slug}/items/{itemId}:
+    description: |
+      `itemId` is a global `meeting_items` id, so **both operations below must first check
+      that the item actually belongs to the meeting named by `slug`, and answer `404` when it
+      does not.** Looking the item up by id alone lets
+      `DELETE /meetings/2026-w38/items/7` remove an entry from week 31's agenda and then
+      renumber week 38 — the meeting that was never touched — leaving the real agenda
+      rendering as 1, 3, 4; the same shape on `PATCH` writes a note onto another week's item.
+      This is the per-item counterpart of the foreign-id rule `PUT .../items/order` already
+      states.
+    parameters:
+      - $ref: '#/components/parameters/MeetingSlug'
+      - $ref: '#/components/parameters/ItemId'
+    patch:
+      tags: [meetings]
+      summary: Edit the notes of an agenda item
+      description: |
+        Admin only. `prep_note` is written during the dev sync before the meeting;
+        `action_note` afterwards. Both belong to this occurrence of the problem, so a later
+        meeting that discusses the same problem gets its own pair — notes belong to the
+        agenda entry, never to the problem (PRD decision log, Q3).
+
+        `404` if `itemId` is not an item of `slug` — see the path description.
+      x-role: admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MeetingItemUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeetingItem' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [meetings]
+      summary: Remove an item from the agenda
+      description: |
+        Admin only. Deletes the entry and its notes. The problem itself is untouched and stays
+        in the bucket. The remaining items **of that same meeting** are renumbered to stay
+        contiguous. `404` if `itemId` is not an item of `slug` — see the path description;
+        deleting on a mismatched pair would renumber the wrong agenda.
+      x-role: admin
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: |
+        Opaque session token set by `POST /auth/login`. Sessions are stored in SQLite and
+        survive a restart of the binary; expired rows are purged at start-up and once a day.
+        Using a session slides its expiry by `SESSION_TTL_HOURS` and re-issues the cookie with
+        a matching `Max-Age`.
+
+  parameters:
+    ProblemId:
+      name: problemId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    AttachmentId:
+      name: attachmentId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    MeetingSlug:
+      name: slug
+      in: path
+      required: true
+      description: |
+        Readable meeting identifier derived from the ISO week, e.g. `2026-w38` or `2026-w38-2`.
+        The year is the ISO week-numbering year, not the calendar year of `meeting_date` —
+        see `POST /meetings`. The week is **always zero-padded to two digits** (`2026-w05`,
+        never `2026-w5`) so one meeting has exactly one spelling and shared links cannot miss.
+        Only ISO weeks 01–53 are valid, and the suffix for an extra meeting in the same week
+        is any integer from `2` up — the suffix alternative is spelled `[2-9]|[1-9][0-9]+` so
+        that `-10` and above match too; `-[2-9][0-9]*` would have accepted `-9` and `-20`
+        while rejecting `-10`, making a meeting that exists unreachable at its own URL.
+      schema:
+        type: string
+        pattern: '^[0-9]{4}-w(0[1-9]|[1-4][0-9]|5[0-3])(-([2-9]|[1-9][0-9]+))?$'
+        example: 2026-w38
+
+  schemas:
+
+    User:
+      type: object
+      required: [username, display_name, role]
+      properties:
+        username: { type: string, example: admin }
+        display_name: { type: string, example: Petr Admin }
+        role:
+          type: string
+          enum: [admin, editor]
+      description: An account from `AUTH_USERS`. There is no user table; records reference the `username`.
+
+    Problem:
+      type: object
+      required: [id, title, description, link, created_at, created_by, updated_at, done, attachment_count, meeting_count]
+      properties:
+        id: { type: integer, format: int64, example: 42 }
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Konflikt se neuloží při současné editaci dvou uživatelů
+        description:
+          type: string
+          description: Free text; line breaks are preserved. Empty string when not filled in.
+        link:
+          type: string
+          description: Optional external URL (ticket, document, …). Empty string when not filled in.
+          example: https://jira.local/browse/VK-123
+        created_at: { type: string, format: date-time }
+        created_by: { type: string, description: Username of the author. }
+        updated_at: { type: string, format: date-time }
+        done: { type: boolean, description: Set by the admin once the problem has actually been solved, typically days after the meeting. }
+        done_at: { type: [string, 'null'], format: date-time }
+        done_by: { type: [string, 'null'] }
+        attachment_count: { type: integer, example: 2 }
+        meeting_count:
+          type: integer
+          description: How many meeting agendas this problem has appeared on so far.
+          example: 1
+
+    ProblemWithAttachments:
+      description: |
+        A problem plus its files, without the cross-meeting timeline. This is what an agenda
+        entry embeds: FR-M8 renders title, description, link, attachments and the two notes,
+        and nothing on the meeting page reads the timeline.
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [attachments]
+          properties:
+            attachments:
+              type: array
+              items: { $ref: '#/components/schemas/Attachment' }
+
+    ProblemDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProblemWithAttachments'
+        - type: object
+          required: [meetings]
+          properties:
+            meetings:
+              type: array
+              description: Every agenda this problem has appeared on, oldest first, with that meeting's notes — the timeline shown on the problem detail page.
+              items: { $ref: '#/components/schemas/ProblemMeetingRef' }
+
+    ProblemMeetingRef:
+      type: object
+      required: [item_id, slug, meeting_date, iso_year, iso_week, position, prep_note, action_note]
+      properties:
+        item_id: { type: integer, format: int64 }
+        slug: { type: string, example: 2026-w38 }
+        meeting_date: { type: string, format: date }
+        iso_year: { type: integer, example: 2026 }
+        iso_week: { type: integer, example: 38 }
+        position: { type: integer, description: 0-based; displayed as position + 1. }
+        prep_note: { type: string }
+        action_note: { type: string }
+
+    ProblemCreate:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, default: '' }
+        link:
+          type: string
+          default: ''
+          pattern: '^(https?://.*)?$'
+          description: |
+            `http(s)` only, or the empty string when there is no link. `format: uri` is
+            deliberately not used: it rejects `''` — the documented "no link" value — and
+            accepts `javascript:`, which must never reach an `href`.
+
+    ProblemUpdate:
+      type: object
+      description: Every field is optional; omitted fields are left unchanged. `done` is deliberately absent — it has its own admin-only endpoint.
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string }
+        link:
+          type: string
+          pattern: '^(https?://.*)?$'
+          description: '`http(s)` only, or the empty string to clear the link; the renderer refuses any other scheme.'
+
+    Attachment:
+      type: object
+      required: [id, problem_id, filename, content_type, size_bytes, url, created_at, created_by]
+      properties:
+        id: { type: integer, format: int64 }
+        problem_id: { type: integer, format: int64 }
+        filename: { type: string, example: konflikt-dialog.png }
+        content_type:
+          type: string
+          description: |
+            Any type. Taken from the upload, falling back to sniffing the first bytes and
+            then to `application/octet-stream`. The client decides how to render from this:
+            `image/*` → thumbnail + lightbox, `video/*` → inline player, anything else →
+            download tile. `image/svg+xml` is the one exception: it is a download tile, never
+            rendered, because the API refuses to serve it inline.
+          example: image/png
+        size_bytes: { type: integer, format: int64, example: 184320 }
+        url:
+          type: string
+          description: |
+            Ready-to-use root-relative URL of the binary content, safe to drop straight into an
+            `src`/`href`. It resolves against the page's own origin, which serves `/api` in
+            both environments — proxied by Vite in development, routed by the SPA listener to
+            the same in-process handler in production.
+          example: /api/attachments/17/content
+        created_at: { type: string, format: date-time }
+        created_by: { type: string }
+
+    Meeting:
+      type: object
+      required: [id, slug, meeting_date, iso_year, iso_week, note, archived, item_count, created_at, created_by]
+      properties:
+        id: { type: integer, format: int64 }
+        slug:
+          type: string
+          description: Stable once created; the shareable URL is `/porada/{slug}`.
+          example: 2026-w38
+        meeting_date: { type: string, format: date, example: '2026-09-18' }
+        iso_year: { type: integer, example: 2026 }
+        iso_week: { type: integer, example: 38 }
+        note:
+          type: string
+          description: Optional free text about the meeting as a whole, rendered above the agenda. Admin-written. Empty string when unused.
+        archived:
+          type: boolean
+          description: Derived, never stored — `meeting_date` is more than `ARCHIVE_AFTER_DAYS` in the past. Archived meetings are hidden from the default list but remain fully readable at their URL.
+        item_count: { type: integer, example: 12 }
+        created_at: { type: string, format: date-time }
+        created_by: { type: string }
+
+    MeetingDetail:
+      allOf:
+        - $ref: '#/components/schemas/Meeting'
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              description: The agenda, ordered by `position` ascending.
+              items: { $ref: '#/components/schemas/MeetingItem' }
+
+    MeetingItem:
+      type: object
+      required: [id, meeting_id, problem_id, position, prep_note, action_note, problem]
+      properties:
+        id: { type: integer, format: int64 }
+        meeting_id: { type: integer, format: int64 }
+        problem_id: { type: integer, format: int64 }
+        position:
+          type: integer
+          description: 0-based ordering within the meeting; the UI numbers items from 1. The manual order is the priority.
+          example: 0
+        prep_note:
+          type: string
+          description: Admin's note written during the dev sync before the meeting. Belongs to this occurrence, not to the problem.
+        action_note:
+          type: string
+          description: Admin's outcome/action note, added after the meeting. Also per occurrence.
+        problem:
+          $ref: '#/components/schemas/ProblemWithAttachments'
+          description: |
+            The problem embedded with its attachments, so the agenda page renders in one
+            request. Deliberately **not** `ProblemDetail`: that schema's required `meetings`
+            array is the problem's whole cross-meeting timeline, which would repeat the very
+            meeting being rendered — with its `prep_note` and `action_note` — once inside every
+            item, and would make a drag-and-drop drop re-download each problem's full history
+            through the `PUT .../items/order` response. The timeline belongs on the problem
+            detail page, which is what `GET /problems/{problemId}` is for.
+
+    MeetingItemUpdate:
+      type: object
+      description: Omitted fields are left unchanged.
+      properties:
+        prep_note: { type: string }
+        action_note: { type: string }
+
+    UploadParts:
+      type: array
+      maxItems: 20
+      description: |
+        Zero or more attachments, sent as repeated `file` parts. Three independent caps apply,
+        and all three are needed: each part is at most `MAX_UPLOAD_BYTES` (100 MB), a request
+        carries at most `MAX_ATTACHMENTS_PER_REQUEST` (20) parts, and the whole body is at most
+        `MAX_REQUEST_BYTES` (512 MB). Exceeding any of them is a `413` and the request is
+        rejected whole. The per-file cap on its own bounds nothing: an unlimited number of
+        99 MB parts is a multi-gigabyte body that the all-or-nothing guarantee forces the
+        server to stage before it commits anything.
+      items:
+        type: string
+        contentMediaType: application/octet-stream
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable token.
+              example: not_found
+            message:
+              type: string
+              description: Czech text, ready to be displayed to the user.
+              example: Záznam nebyl nalezen.
+            details:
+              type: object
+              additionalProperties: true
+              description: Optional field-level validation errors, keyed by field name.
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: validation_failed
+              message: Vyplňte název problému.
+              details:
+                title: Název je povinný.
+    Unauthorized:
+      description: No valid session
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: unauthorized
+              message: Pro tuto akci se musíte přihlásit.
+    Forbidden:
+      description: Signed in, but the action is admin-only
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: forbidden
+              message: Tuto akci může provést pouze správce.
+    NotFound:
+      description: No such record
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: not_found
+              message: Záznam nebyl nalezen.
+    PayloadTooLarge:
+      description: |
+        An upload cap was exceeded: a single part larger than `MAX_UPLOAD_BYTES`, more than
+        `MAX_ATTACHMENTS_PER_REQUEST` parts, or a body larger than `MAX_REQUEST_BYTES`.
+        Nothing is written — no problem, no row, no file.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example:
+            error:
+              code: file_too_large
+              message: Soubor je větší než povolených 100 MB.
+
+security:
+  - sessionCookie: []
