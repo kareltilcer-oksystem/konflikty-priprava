@@ -1,0 +1,223 @@
+@import 'tailwindcss';
+
+/* IBM Plex, self-hosted.
+   The app runs on an internal network that may not reach the Google CDN the
+   mockups load from, and a silent fallback to system-ui would change every
+   measurement in the design. Sans ships as one variable file per subset
+   covering 400-600; Mono is static per weight. latin-ext is what carries
+   ě š č ř ž ů ť ď ň, so Czech is unreadable without it. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('../assets/fonts/plex-sans-var-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('../assets/fonts/plex-sans-var-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/plex-mono-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/plex-mono-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/plex-mono-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/plex-mono-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Design tokens, taken from design/v1.
+   Colour does exactly three jobs here — the primary action, the done state and
+   the deferral badge. Red is confined to confirmations and validation. */
+@theme {
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --color-ink: #15181c;
+  --color-prose: #22262c;
+  --color-secondary: #5b6370;
+  --color-muted: #8a919c;
+  --color-faint: #a2a9b4;
+  --color-ghost: #c5cad1;
+
+  --color-rule: #f0f2f4;
+  --color-rule-strong: #dfe3e8;
+  --color-line: #e2e5ea;
+  --color-line-soft: #eef0f2;
+  --color-field: #d9dde3;
+  --color-check: #c3c9d2;
+  --color-check-round: #cfd4db;
+  --color-frame: #d7dbe1;
+
+  --color-surface: #ffffff;
+  --color-surface-sunken: #fafbfc;
+  --color-surface-hover: #f7f8f9;
+  --color-surface-track: #f1f3f5;
+  --color-surface-tile: #e7eaee;
+
+  --color-primary: #2f5bd0;
+  --color-primary-hover: #2549ae;
+  --color-primary-ink: #2549ae;
+  --color-primary-line: #c9d6f5;
+  --color-primary-tint: #f2f5fd;
+  --color-primary-note: #f6f8fd;
+  --color-primary-chip: #e9eefb;
+
+  --color-done: #167a3e;
+  --color-done-line: #bfe0cb;
+  --color-done-tint: #f1f8f3;
+  --color-done-hover: #e6f3ea;
+
+  --color-defer: #94540a;
+  --color-defer-tint: #fdf1de;
+
+  --color-danger: #b03a2b;
+  --color-danger-hover: #96301f;
+  --color-danger-strong: #c0392b;
+  --color-danger-ink: #8f2d1f;
+  --color-danger-line: #e8d5d2;
+  --color-danger-box: #e8cfcb;
+  --color-danger-tint: #fdf3f2;
+  --color-danger-bg: #fdf7f6;
+  --color-danger-track: #f0e2df;
+
+  --color-video: #1b1f25;
+  --color-viewport: #2a2f36;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* The focus ring from the design: a blue border plus a soft halo. Applied to
+     :focus-visible so a mouse click does not light every control up. */
+  :focus-visible {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgb(47 91 208 / 0.12);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-faint);
+  }
+  /* Keep the Czech agenda readable rather than raggedly hyphenated. */
+  h1, h2, h3, p {
+    text-wrap: pretty;
+  }
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgb(47 91 208 / 0.12);
+  }
+}
+
+/* The print stylesheet (FR-R3). Ctrl+P on the meeting page must produce the
+   agenda and nothing else: no navigation, no controls, every note expanded,
+   links as readable text. Assume a black-and-white office printer — colour
+   does no work here. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+
+  /* Anything that only exists to be clicked. */
+  .print-hide,
+  nav,
+  button,
+  input,
+  select {
+    display: none !important;
+  }
+
+  /* Notes are rendered as static text when printing, so nothing is trapped
+     inside a textarea's scroll area. */
+  textarea {
+    display: none !important;
+  }
+
+  a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+
+  /* An item tries not to break; when it must, the continuation says which
+     item it belongs to. */
+  .print-item {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-only {
+    display: revert !important;
+  }
+
+  .print-full {
+    max-height: none !important;
+    overflow: visible !important;
+    -webkit-line-clamp: unset !important;
+    display: block !important;
+  }
+}
+
+/* Hidden on screen, revealed by the print rules above. */
+.print-only {
+  display: none;
+}

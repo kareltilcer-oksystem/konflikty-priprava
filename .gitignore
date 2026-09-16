@@ -11,6 +11,7 @@
 # Frontend
 node_modules/
 .vite/
+*.tsbuildinfo
 internal/spa/dist/*
 !internal/spa/dist/.gitkeep
 

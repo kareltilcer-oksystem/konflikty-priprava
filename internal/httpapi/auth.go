@@ -80,3 +80,18 @@ func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, toUser(account))
 }
+
+// listUsers returns the configured accounts so the UI can render an author's
+// display name instead of the bare username it is stored under.
+//
+// Public, like every other read: author names are already visible to anyone
+// (PRD decision log, Q12). It carries no secret — only what AUTH_USERS made
+// public — and it is a name lookup, not the user management the PRD rules out.
+func (a *API) listUsers(w http.ResponseWriter, r *http.Request) {
+	accounts := a.users.All()
+	out := make([]userDTO, 0, len(accounts))
+	for _, acct := range accounts {
+		out = append(out, toUser(acct))
+	}
+	writeJSON(w, http.StatusOK, out)
+}

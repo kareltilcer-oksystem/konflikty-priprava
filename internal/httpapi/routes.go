@@ -18,6 +18,7 @@ func (a *API) routes() http.Handler {
 	mux.HandleFunc("POST /api/auth/login", a.login)
 	mux.HandleFunc("POST /api/auth/logout", a.logout)
 	mux.HandleFunc("GET /api/auth/me", a.me)
+	mux.HandleFunc("GET /api/users", a.listUsers)
 
 	// problems
 	mux.HandleFunc("GET /api/problems", a.listProblems)

@@ -137,6 +137,20 @@ func (r *Registry) AdminCount() int {
 	return n
 }
 
+// All returns every configured account, in the order AUTH_USERS lists them.
+//
+// Records store the username, but every screen that names an author shows the
+// display name, so the frontend needs the mapping. Author names are public
+// anyway (PRD decision log, Q12), which is why the endpoint that serves this
+// needs no session.
+func (r *Registry) All() []Account {
+	out := make([]Account, 0, len(r.order))
+	for _, name := range r.order {
+		out = append(out, r.byName[name])
+	}
+	return out
+}
+
 // Lookup returns the account for a username. It is how a session token is
 // resolved back to a user, so an account removed from AUTH_USERS stops being
 // able to act the moment the binary restarts.
