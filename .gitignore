@@ -10,8 +10,10 @@
 
 # Frontend
 node_modules/
-dist/
 .vite/
+*.tsbuildinfo
+internal/spa/dist/*
+!internal/spa/dist/.gitkeep
 
 # Runtime data — DATA_DIR holds app.db and attachments/ (PRD 10)
 /data/
