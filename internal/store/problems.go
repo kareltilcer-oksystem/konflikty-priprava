@@ -289,3 +289,32 @@ func scanStrings(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]
 	}
 	return out, rows.Err()
 }
+
+// ProblemsByIDs loads several problems at once, keyed by id.
+//
+// The agenda page needs one problem per item; this keeps that at a single
+// query however long the agenda is.
+func (s *Store) ProblemsByIDs(ctx context.Context, ids []int64) (map[int64]Problem, error) {
+	out := make(map[int64]Problem, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	query := "SELECT" + problemColumns + " FROM problems p WHERE p.id IN (" + placeholders(len(ids)) + ")"
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("load problems by id: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		p, err := scanProblem(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan problem: %w", err)
+		}
+		out[p.ID] = p
+	}
+	return out, rows.Err()
+}

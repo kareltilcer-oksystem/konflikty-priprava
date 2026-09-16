@@ -22,16 +22,24 @@ func scanItem(sc scanner) (MeetingItem, error) {
 // This runs after any delete that punches a hole in an agenda. SQLite's cascade
 // removes the row but leaves the survivors numbered 0, 2, 3 — which the UI
 // would render as 1, 3, 4.
+//
+// The order is read first and the new positions are written explicitly, rather
+// than computed by a correlated subquery inside one UPDATE. That shortcut is
+// wrong: SQLite walks the table in rowid order and the subquery sees rows the
+// same statement has already rewritten, so once the agenda has been reordered —
+// and position order no longer matches id order — it produces duplicates and
+// gaps. With ~15 rows the explicit loop costs nothing.
 func renumberItems(ctx context.Context, tx *sql.Tx, meetingID int64) error {
-	_, err := tx.ExecContext(ctx, `
-		UPDATE meeting_items SET position = (
-		  SELECT COUNT(*) FROM meeting_items m2
-		   WHERE m2.meeting_id = meeting_items.meeting_id
-		     AND (m2.position <  meeting_items.position
-		      OR (m2.position =  meeting_items.position AND m2.id < meeting_items.id)))
-		WHERE meeting_id = ?`, meetingID)
+	ids, err := scanInt64s(ctx, tx,
+		`SELECT id FROM meeting_items WHERE meeting_id = ? ORDER BY position, id`, meetingID)
 	if err != nil {
-		return fmt.Errorf("renumber agenda of meeting %d: %w", meetingID, err)
+		return fmt.Errorf("read agenda of meeting %d: %w", meetingID, err)
+	}
+	for pos, id := range ids {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE meeting_items SET position = ? WHERE id = ?`, pos, id); err != nil {
+			return fmt.Errorf("renumber agenda item %d: %w", id, err)
+		}
 	}
 	return nil
 }

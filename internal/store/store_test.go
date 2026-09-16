@@ -158,6 +158,45 @@ func TestDeleteItemRenumbers(t *testing.T) {
 	}
 }
 
+// Regression: renumbering must survive an agenda whose position order no
+// longer matches its id order.
+//
+// A correlated-subquery renumber passes the simple case above and fails here,
+// producing [0 2 2] — a duplicate position and a gap — because SQLite walks the
+// table in rowid order and the subquery sees rows the same statement has
+// already rewritten.
+func TestRenumberAfterReorder(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	m := mustMeeting(t, s, "2026-09-18")
+	var pids []int64
+	for i := 0; i < 4; i++ {
+		pids = append(pids, mustProblem(t, s, "p"))
+	}
+	items, err := s.AddItems(ctx, m.Slug, pids, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	order := []int64{items[3].ID, items[0].ID, items[2].ID, items[1].ID}
+	if _, err := s.ReorderItems(ctx, m.Slug, order); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteItem(ctx, m.Slug, order[1]); err != nil {
+		t.Fatal(err)
+	}
+	if got := positions(t, s, m.ID); !equalInts(got, 0, 1, 2) {
+		t.Fatalf("positions = %v, want 0 1 2 — the agenda would render with a gap", got)
+	}
+	// The surviving order must still be the one the admin dragged into place.
+	left, _ := s.ListItems(ctx, m.ID)
+	want := []int64{order[0], order[2], order[3]}
+	for i, it := range left {
+		if it.ID != want[i] {
+			t.Errorf("slot %d holds item %d, want %d", i, it.ID, want[i])
+		}
+	}
+}
+
 // Deleting a problem strips it from every agenda it was on, and each of those
 // agendas must be renumbered — while an unrelated meeting is left alone.
 func TestDeleteProblemRenumbersEveryAffectedMeeting(t *testing.T) {
