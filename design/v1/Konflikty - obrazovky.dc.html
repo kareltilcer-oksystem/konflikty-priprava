@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#eceef1; font-family:'IBM Plex Sans', system-ui, sans-serif; color:#15181c; }
+    a { color:#2f5bd0; }
+    a:hover { color:#2549ae; }
+    input::placeholder, textarea::placeholder { color:#a2a9b4; }
+    select { font-family:'IBM Plex Sans', sans-serif; }
+  </style>
+</helmet>
+<section style="padding:72px 80px 140px;display:flex;flex-direction:column;gap:0">
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:820px">
+    <div style="font:600 28px/1.2 'IBM Plex Sans',sans-serif;letter-spacing:-.02em">Velké konflikty — příprava porady</div>
+    <div style="font:400 14.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Návrh všech obrazovek podle <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">docs/DESIGN-HANDOFF.md</span>. Artboardy jsou označené kódy z handoffu (A1–A10, B1–B6). Na A1 fungují filtry, hledání, řazení, přepínač „vyřešeno“ i překryvná okna; na A6 přepínač archivu; na A10 výběr problémů.</div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;margin:56px 0 16px">
+    <span style="font:600 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#8a919c;white-space:nowrap">Zásobník problémů · /</span>
+    <span style="flex:1;height:1px;background:#d7dbe1"></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:72px 64px;align-items:flex-start">
+
+    <div id="A1" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A1</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Zásobník — admin, přihlášen</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">/ · 1440 × 1024</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;position:relative;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="problemy" hint-size="100%,57px"></dc-import>
+        <div style="padding:26px 32px 0;flex:1;min-height:0">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0;font:600 20px/1.2 'IBM Plex Sans',sans-serif;letter-spacing:-.01em">Problémy</h1>
+              <div style="margin-top:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">{{ bucketCountLabel }}</div>
+            </div>
+            <a href="#A4" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;text-decoration:none" style-hover="background:#2549ae">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+              Přidat problém
+            </a>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:14px;margin-top:22px">
+            <div style="display:flex;gap:2px;padding:3px;background:#f1f3f5;border-radius:7px">
+              <sc-if value="{{ fA }}" hint-placeholder-val="{{ true }}"><button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">nevyřešené</button></sc-if>
+              <sc-if value="{{ nfA }}"><button type="button" onClick="{{ setFilterA }}" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer" style-hover="color:#15181c">nevyřešené</button></sc-if>
+              <sc-if value="{{ fB }}"><button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">vyřešené</button></sc-if>
+              <sc-if value="{{ nfB }}"><button type="button" onClick="{{ setFilterB }}" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer" style-hover="color:#15181c">vyřešené</button></sc-if>
+              <sc-if value="{{ fC }}"><button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">vše</button></sc-if>
+              <sc-if value="{{ nfC }}"><button type="button" onClick="{{ setFilterC }}" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer" style-hover="color:#15181c">vše</button></sc-if>
+            </div>
+            <div style="position:relative;width:300px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" style="position:absolute;left:10px;top:9px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.3-4.3"></path></svg>
+              <input type="text" value="{{ q }}" onChange="{{ setQ }}" placeholder="Hledat v problémech…" style="width:100%;height:33px;box-sizing:border-box;padding:0 10px 0 31px;border:1px solid #d9dde3;border-radius:6px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;outline:none" style-focus="border-color:#2f5bd0;box-shadow:0 0 0 3px rgba(47,91,208,.12)">
+            </div>
+            <div style="flex:1"></div>
+            <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">Řadit</span>
+            <select value="{{ sort }}" onChange="{{ setSort }}" style="height:33px;padding:0 30px 0 10px;border:1px solid #d9dde3;border-radius:6px;background:#fff url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6370' stroke-width='2.4'><path d='m6 9 6 6 6-6'/></svg>&quot;) no-repeat right 9px center;-webkit-appearance:none;appearance:none;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer;outline:none">
+              <option value="nejnovější">nejnovější</option>
+              <option value="nejstarší">nejstarší</option>
+              <option value="nejčastěji na poradě">nejčastěji na poradě</option>
+            </select>
+          </div>
+
+          <div style="display:grid;grid-template-columns:28px minmax(0,1fr) 150px 104px 70px 56px;gap:16px;align-items:center;margin-top:20px;padding-bottom:9px;border-bottom:1px solid #dfe3e8">
+            <span></span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Problém</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Autor</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Vloženo</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c;text-align:center">Přílohy</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c;text-align:right">Porady</span>
+          </div>
+
+          <sc-for list="{{ bucketRows }}" as="r" hint-placeholder-count="7">
+            <div style="display:grid;grid-template-columns:28px minmax(0,1fr) 150px 104px 70px 56px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #f0f2f4" style-hover="background:#fafbfc">
+              <sc-if value="{{ r.done }}">
+                <button type="button" onClick="{{ r.toggle }}" title="Vrátit mezi nevyřešené" style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:1px solid #167a3e;border-radius:50%;background:#167a3e;cursor:pointer;padding:0">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                </button>
+              </sc-if>
+              <sc-if value="{{ r.notDone }}">
+                <button type="button" onClick="{{ r.toggle }}" title="Označit jako vyřešené" style="width:20px;height:20px;border:1.5px solid #cfd4db;border-radius:50%;background:#fff;cursor:pointer;padding:0" style-hover="border-color:#167a3e;background:#f1f8f3"></button>
+              </sc-if>
+              <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                <sc-if value="{{ r.notDone }}"><a href="#A5" style="font:500 14.5px/1.35 'IBM Plex Sans',sans-serif;color:#15181c;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" style-hover="color:#2f5bd0">{{ r.title }}</a></sc-if>
+                <sc-if value="{{ r.done }}"><a href="#A5" style="font:400 14.5px/1.35 'IBM Plex Sans',sans-serif;color:#8a919c;text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</a></sc-if>
+                <sc-if value="{{ r.done }}"><span style="flex:none;padding:3px 7px;border:1px solid #bfe0cb;border-radius:4px;background:#f1f8f3;font:500 10.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#167a3e">Vyřešeno</span></sc-if>
+              </div>
+              <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.author }}</span>
+              <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c;white-space:nowrap">{{ r.age }}</span>
+              <span style="display:flex;align-items:center;justify-content:center;gap:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">
+                <sc-if value="{{ r.hasFiles }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l8.49-8.48a3.67 3.67 0 0 1 5.18 5.18l-8.49 8.49a1.83 1.83 0 0 1-2.59-2.6l7.78-7.77"></path></svg></sc-if>
+                <sc-if value="{{ r.hasFiles }}"><span>{{ r.files }}</span></sc-if>
+                <sc-if value="{{ r.noFiles }}"><span style="color:#c5cad1">—</span></sc-if>
+              </span>
+              <span style="display:flex;justify-content:flex-end">
+                <sc-if value="{{ r.badgeZero }}"><span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#c5cad1">—</span></sc-if>
+                <sc-if value="{{ r.badgeLow }}"><span style="padding:3px 8px;border-radius:4px;background:#f1f3f5;font:500 12px/1.2 'IBM Plex Mono',monospace;color:#5b6370">{{ r.badgeText }}</span></sc-if>
+                <sc-if value="{{ r.badgeHigh }}"><span style="padding:3px 8px;border-radius:4px;background:#fdf1de;font:500 12.5px/1.2 'IBM Plex Mono',monospace;color:#94540a">{{ r.badgeText }}</span></sc-if>
+              </span>
+            </div>
+          </sc-for>
+
+          <sc-if value="{{ bucketEmptySearch }}">
+            <div style="padding:64px 0;text-align:center">
+              <div style="font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#5b6370">Hledání nic nenašlo.</div>
+              <button type="button" onClick="{{ clearQ }}" style="margin-top:12px;height:30px;padding:0 12px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit hledání</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ bucketEmptyList }}">
+            <div style="padding:64px 0;text-align:center">
+              <div style="font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#5b6370">Žádné nevyřešené problémy.</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+
+    <div id="A2" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A2</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Zásobník — anonymní návštěvník</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">/ · bez zapisovacích prvků</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="" active="problemy" hint-size="100%,57px"></dc-import>
+        <div style="padding:26px 32px 0;flex:1;min-height:0">
+          <h1 style="margin:0;font:600 20px/1.2 'IBM Plex Sans',sans-serif;letter-spacing:-.01em">Problémy</h1>
+          <div style="margin-top:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">7 nevyřešených problémů</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:22px">
+            <div style="display:flex;gap:2px;padding:3px;background:#f1f3f5;border-radius:7px">
+              <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">nevyřešené</button>
+              <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vyřešené</button>
+              <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vše</button>
+            </div>
+            <div style="position:relative;width:300px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" style="position:absolute;left:10px;top:9px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.3-4.3"></path></svg>
+              <input type="text" placeholder="Hledat v problémech…" style="width:100%;height:33px;box-sizing:border-box;padding:0 10px 0 31px;border:1px solid #d9dde3;border-radius:6px;font:400 13px/1 'IBM Plex Sans',sans-serif;outline:none">
+            </div>
+            <div style="flex:1"></div>
+            <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">Řadit</span>
+            <select style="height:33px;padding:0 30px 0 10px;border:1px solid #d9dde3;border-radius:6px;background:#fff;-webkit-appearance:none;appearance:none;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer"><option>nejnovější</option></select>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 104px 70px 56px;gap:16px;align-items:center;margin-top:20px;padding-bottom:9px;border-bottom:1px solid #dfe3e8">
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Problém</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Autor</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Vloženo</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c;text-align:center">Přílohy</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c;text-align:right">Porady</span>
+          </div>
+          <sc-for list="{{ anonRows }}" as="r" hint-placeholder-count="7">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px 104px 70px 56px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #f0f2f4">
+              <a href="#A5" style="font:500 14.5px/1.35 'IBM Plex Sans',sans-serif;color:#15181c;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" style-hover="color:#2f5bd0">{{ r.title }}</a>
+              <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">{{ r.author }}</span>
+              <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">{{ r.age }}</span>
+              <span style="display:flex;align-items:center;justify-content:center;gap:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">
+                <sc-if value="{{ r.hasFiles }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l8.49-8.48a3.67 3.67 0 0 1 5.18 5.18l-8.49 8.49a1.83 1.83 0 0 1-2.59-2.6l7.78-7.77"></path></svg></sc-if>
+                <sc-if value="{{ r.hasFiles }}"><span>{{ r.files }}</span></sc-if>
+                <sc-if value="{{ r.noFiles }}"><span style="color:#c5cad1">—</span></sc-if>
+              </span>
+              <span style="display:flex;justify-content:flex-end">
+                <sc-if value="{{ r.badgeZero }}"><span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#c5cad1">—</span></sc-if>
+                <sc-if value="{{ r.badgeLow }}"><span style="padding:3px 8px;border-radius:4px;background:#f1f3f5;font:500 12px/1.2 'IBM Plex Mono',monospace;color:#5b6370">{{ r.badgeText }}</span></sc-if>
+                <sc-if value="{{ r.badgeHigh }}"><span style="padding:3px 8px;border-radius:4px;background:#fdf1de;font:500 12.5px/1.2 'IBM Plex Mono',monospace;color:#94540a">{{ r.badgeText }}</span></sc-if>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div id="A3" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A3</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Zásobník — tři stavy seznamu</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">prázdný · bez výsledku · filtr „vše“</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="problemy" hint-size="100%,57px"></dc-import>
+        <div style="flex:1;min-height:0;display:grid;grid-template-rows:1fr 1fr 1.9fr">
+          <div style="padding:22px 32px;border-bottom:1px solid #e2e5ea">
+            <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">Prázdný zásobník — filtr nevyřešené</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+              <div style="display:flex;gap:2px;padding:3px;background:#f1f3f5;border-radius:7px">
+                <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">nevyřešené</button>
+                <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vyřešené</button>
+                <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vše</button>
+              </div>
+              <button type="button" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:none;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                Přidat problém
+              </button>
+            </div>
+            <div style="margin-top:14px;padding:44px 0;border-top:1px solid #dfe3e8;text-align:center">
+              <div style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#15181c">Žádné nevyřešené problémy.</div>
+              <div style="margin-top:6px;font:400 13px/1.5 'IBM Plex Sans',sans-serif;color:#8a919c">Na příští poradu není co připravovat.</div>
+            </div>
+          </div>
+          <div style="padding:22px 32px;border-bottom:1px solid #e2e5ea">
+            <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">Hledání bez výsledku</div>
+            <div style="position:relative;width:300px;margin-top:14px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" style="position:absolute;left:10px;top:9px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.3-4.3"></path></svg>
+              <input type="text" value="export do excelu" style="width:100%;height:33px;box-sizing:border-box;padding:0 10px 0 31px;border:1px solid #d9dde3;border-radius:6px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;outline:none">
+            </div>
+            <div style="margin-top:14px;padding:40px 0;border-top:1px solid #dfe3e8;text-align:center">
+              <div style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#15181c">Hledání nic nenašlo.</div>
+              <div style="margin-top:6px;font:400 13px/1.5 'IBM Plex Sans',sans-serif;color:#8a919c">Hledá se v názvu i popisu, bez ohledu na diakritiku a velikost písmen.</div>
+              <button type="button" style="margin-top:14px;height:30px;padding:0 12px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit hledání</button>
+            </div>
+          </div>
+          <div style="padding:22px 32px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">Filtr „vše“ — vyřešené a nevyřešené vedle sebe</div>
+              <div style="display:flex;gap:2px;padding:3px;background:#f1f3f5;border-radius:7px">
+                <button type="button" style="padding:5px 10px;border:none;border-radius:5px;background:transparent;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">nevyřešené</button>
+                <button type="button" style="padding:5px 10px;border:none;border-radius:5px;background:transparent;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vyřešené</button>
+                <button type="button" style="padding:5px 10px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">vše</button>
+              </div>
+            </div>
+            <sc-for list="{{ vseRows }}" as="r" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:28px minmax(0,1fr) 150px 104px 70px 56px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #f0f2f4">
+                <sc-if value="{{ r.done }}">
+                  <span style="width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#167a3e">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ r.notDone }}"><span style="width:20px;height:20px;border:1.5px solid #cfd4db;border-radius:50%;background:#fff;display:block"></span></sc-if>
+                <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                  <sc-if value="{{ r.notDone }}"><a href="#A5" style="font:500 14.5px/1.35 'IBM Plex Sans',sans-serif;color:#15181c;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</a></sc-if>
+                  <sc-if value="{{ r.done }}"><a href="#A5" style="font:400 14.5px/1.35 'IBM Plex Sans',sans-serif;color:#8a919c;text-decoration:line-through;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</a></sc-if>
+                  <sc-if value="{{ r.done }}"><span style="flex:none;padding:3px 7px;border:1px solid #bfe0cb;border-radius:4px;background:#f1f8f3;font:500 10.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#167a3e">Vyřešeno</span></sc-if>
+                </div>
+                <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">{{ r.author }}</span>
+                <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">{{ r.age }}</span>
+                <span style="display:flex;align-items:center;justify-content:center;gap:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">
+                  <sc-if value="{{ r.hasFiles }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round"><path d="M21.4 11.05 12.25 20.2a5.5 5.5 0 0 1-7.78-7.78l8.49-8.48a3.67 3.67 0 0 1 5.18 5.18l-8.49 8.49a1.83 1.83 0 0 1-2.59-2.6l7.78-7.77"></path></svg></sc-if>
+                  <sc-if value="{{ r.hasFiles }}"><span>{{ r.files }}</span></sc-if>
+                  <sc-if value="{{ r.noFiles }}"><span style="color:#c5cad1">—</span></sc-if>
+                </span>
+                <span style="display:flex;justify-content:flex-end">
+                  <sc-if value="{{ r.badgeZero }}"><span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#c5cad1">—</span></sc-if>
+                  <sc-if value="{{ r.badgeLow }}"><span style="padding:3px 8px;border-radius:4px;background:#f1f3f5;font:500 12px/1.2 'IBM Plex Mono',monospace;color:#5b6370">{{ r.badgeText }}</span></sc-if>
+                  <sc-if value="{{ r.badgeHigh }}"><span style="padding:3px 8px;border-radius:4px;background:#fdf1de;font:500 12.5px/1.2 'IBM Plex Mono',monospace;color:#94540a">{{ r.badgeText }}</span></sc-if>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;margin:72px 0 16px">
+    <span style="font:600 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#8a919c;white-space:nowrap">Problém — formulář a detail</span>
+    <span style="flex:1;height:1px;background:#d7dbe1"></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:72px 64px;align-items:flex-start">
+
+    <div id="A4" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A4</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Přidat problém — panel zprava</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">editor · zásobník zůstává vidět</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;position:relative;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Jan Novák" active="problemy" hint-size="100%,57px"></dc-import>
+        <div style="padding:26px 32px 0;flex:1;min-height:0">
+          <h1 style="margin:0;font:600 20px/1.2 'IBM Plex Sans',sans-serif;letter-spacing:-.01em">Problémy</h1>
+          <div style="margin-top:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">7 nevyřešených problémů</div>
+          <div style="display:flex;gap:2px;padding:3px;background:#f1f3f5;border-radius:7px;width:fit-content;margin-top:22px">
+            <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:#fff;box-shadow:0 1px 2px rgba(21,24,28,.1);font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">nevyřešené</button>
+            <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vyřešené</button>
+            <button type="button" style="padding:6px 12px;border:none;border-radius:5px;background:transparent;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer">vše</button>
+          </div>
+          <sc-for list="{{ anonRows }}" as="r" hint-placeholder-count="7">
+            <div style="display:grid;grid-template-columns:28px minmax(0,1fr) 150px 104px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #f0f2f4">
+              <span style="width:20px;height:20px;border:1.5px solid #cfd4db;border-radius:50%;display:block"></span>
+              <span style="font:500 14.5px/1.35 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span>
+              <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">{{ r.author }}</span>
+              <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">{{ r.age }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(21,24,28,.28)"></div>
+        <div style="position:absolute;top:0;right:0;bottom:0;width:560px;background:#fff;box-shadow:-8px 0 28px rgba(21,24,28,.14);display:flex;flex-direction:column">
+          <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;height:60px;border-bottom:1px solid #e2e5ea">
+            <span style="font:600 16.5px/1 'IBM Plex Sans',sans-serif">Přidat problém</span>
+            <button type="button" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;border-radius:6px;background:transparent;cursor:pointer" style-hover="background:#f1f3f5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b6370" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+          </div>
+          <div style="flex:1;min-height:0;overflow:hidden;padding:20px 22px;display:flex;flex-direction:column;gap:18px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between">
+                <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Název <span style="color:#c0392b">*</span></label>
+                <span style="font:400 11.5px/1 'IBM Plex Mono',monospace;color:#a2a9b4">51 / 200</span>
+              </div>
+              <input type="text" value="Náhled rozdílů nezobrazuje diakritiku správně" style="height:36px;box-sizing:border-box;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;font:400 14px/1 'IBM Plex Sans',sans-serif;color:#15181c;outline:none" style-focus="border-color:#2f5bd0;box-shadow:0 0 0 3px rgba(47,91,208,.12)">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Popis</label>
+              <textarea style="height:104px;box-sizing:border-box;padding:9px 11px;border:1px solid #d9dde3;border-radius:6px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;color:#15181c;resize:none;outline:none" style-focus="border-color:#2f5bd0;box-shadow:0 0 0 3px rgba(47,91,208,.12)">V náhledu rozdílů se místo „ě“ a „ř“ zobrazují otazníky. Na detailu konfliktu už je text správně, takže to vypadá jen na náhled.
+
+Testováno na testu 2, Chrome i Firefox.</textarea>
+              <span style="font:400 11.5px/1 'IBM Plex Sans',sans-serif;color:#a2a9b4">Zlomy řádků se zachovají.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Odkaz</label>
+              <input type="text" value="https://jira.interni/browse/KONF-1482" style="height:36px;box-sizing:border-box;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;font:400 13px/1 'IBM Plex Mono',monospace;color:#15181c;outline:none">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Přílohy</label>
+              <div style="padding:18px;border:1.5px dashed #c3c9d2;border-radius:8px;background:#fafbfc;text-align:center">
+                <div style="font:500 13.5px/1.4 'IBM Plex Sans',sans-serif;color:#15181c">Vložte snímek obrazovky (Ctrl+V) nebo přetáhněte soubory</div>
+                <div style="margin-top:5px;font:400 11.5px/1.5 'IBM Plex Sans',sans-serif;color:#8a919c">Jakýkoli typ souboru · max 100 MB na soubor · 20 souborů · 512 MB celkem</div>
+                <button type="button" style="margin-top:11px;height:29px;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Vybrat soubory</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <div style="display:flex;align-items:center;gap:11px;padding:8px;border:1px solid #e2e5ea;border-radius:7px">
+                  <span style="width:40px;height:40px;flex:none;border-radius:4px;background:#e7eaee;display:flex;align-items:center;justify-content:center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"></rect><circle cx="8.5" cy="9.5" r="1.5"></circle><path d="m4 18 5-5 4 4 3-3 4 4"></path></svg>
+                  </span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:400 13px/1.3 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">nahled-diakritika.png</span>
+                    <span style="display:block;margin-top:3px;font:400 11.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">180 kB · nahráno</span>
+                  </span>
+                  <button type="button" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:transparent;cursor:pointer" style-hover="background:#f1f3f5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                  </button>
+                </div>
+                <div style="display:flex;align-items:center;gap:11px;padding:8px;border:1px solid #e2e5ea;border-radius:7px">
+                  <span style="width:40px;height:40px;flex:none;border-radius:4px;background:#e7eaee;display:flex;align-items:center;justify-content:center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m10.5 9.5 4.5 2.5-4.5 2.5z" fill="#8a919c" stroke="none"></path></svg>
+                  </span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font:400 13px/1.3 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">zaznam-nahledu.mp4</span>
+                    <span style="display:flex;align-items:center;gap:8px;margin-top:5px">
+                      <span style="flex:1;height:4px;border-radius:2px;background:#e7eaee;display:block;position:relative;overflow:hidden">
+                        <span style="position:absolute;left:0;top:0;bottom:0;width:62%;background:#2f5bd0;display:block"></span>
+                      </span>
+                      <span style="font:400 11.5px/1 'IBM Plex Mono',monospace;color:#8a919c">62 % · 24,3 MB</span>
+                    </span>
+                  </span>
+                  <button type="button" style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:transparent;cursor:pointer" style-hover="background:#f1f3f5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 22px;border-top:1px solid #e2e5ea;background:#fafbfc">
+            <span style="font:400 11.5px/1.4 'IBM Plex Sans',sans-serif;color:#8a919c;max-width:230px">Problém i přílohy se uloží jednou akcí.</span>
+            <span style="display:flex;gap:9px">
+              <button type="button" style="height:34px;padding:0 14px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer" style-hover="background:#f1f3f5">Zrušit</button>
+              <button type="button" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer" style-hover="background:#2549ae">Uložit</button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="A5" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A5</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Detail problému — admin</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">/problem/42</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="problemy" hint-size="100%,57px"></dc-import>
+        <div style="flex:1;min-height:0;padding:24px 32px;overflow:hidden">
+          <div style="max-width:1000px">
+            <a href="#A1" style="display:inline-flex;align-items:center;gap:6px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;text-decoration:none" style-hover="color:#2f5bd0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"></path></svg>
+              Problémy
+            </a>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:32px;margin-top:12px">
+              <div style="min-width:0">
+                <h1 style="margin:0;font:600 23px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:-.01em;text-wrap:pretty">Chybné číslování verzí po sloučení velkého konfliktu</h1>
+                <div style="margin-top:8px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">Vložila <span style="color:#5b6370">Eva Dvořáková</span> · 12. 9. 2026 · upraveno 14. 9. 2026</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex:none">
+                <button type="button" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid #bfe0cb;border-radius:6px;background:#f1f8f3;font:500 13px/1 'IBM Plex Sans',sans-serif;color:#167a3e;cursor:pointer" style-hover="background:#e6f3ea">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                  Označit jako vyřešené
+                </button>
+                <button type="button" style="height:34px;padding:0 13px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer" style-hover="background:#f7f8f9">Upravit</button>
+                <button type="button" style="height:34px;padding:0 13px;border:1px solid #e8d5d2;border-radius:6px;background:#fff;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#b03a2b;cursor:pointer" style-hover="background:#fdf3f2">Smazat</button>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:44px;margin-top:26px;align-items:start">
+              <div>
+                <p style="margin:0;font:400 14.5px/1.7 'IBM Plex Sans',sans-serif;color:#22262c;white-space:pre-line;text-wrap:pretty">Po sloučení konfliktu nad 2 000 řádky se verze přečíslují už ve chvíli, kdy si uživatel jen otevře náhled sloučení. Když sloučení nepotvrdí, čísla verzí zůstanou přeskočená a v protokolu chybí.
+
+Nastává jen u velkých konfliktů — na malých se to nechová takto.</p>
+                <a href="#" style="display:inline-flex;align-items:center;gap:7px;margin-top:16px;font:400 13.5px/1 'IBM Plex Mono',monospace;color:#2f5bd0;text-decoration:none" style-hover="text-decoration:underline">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14 21 3m0 0h-6m6 0v6M19 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"></path></svg>
+                  jira.interni/browse/KONF-1391
+                </a>
+
+                <div style="margin-top:28px">
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font:500 12px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8a919c">Přílohy — 3</span>
+                    <button type="button" style="height:29px;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Přidat přílohy</button>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px">
+                    <div style="position:relative;border:1px solid #e2e5ea;border-radius:7px;overflow:hidden">
+                      <a href="#B4" style="display:flex;align-items:center;justify-content:center;height:128px;background:#e7eaee;text-decoration:none">
+                        <span style="font:400 11px/1 'IBM Plex Mono',monospace;color:#8a919c">snímek 1440 × 812</span>
+                      </a>
+                      <div style="padding:7px 9px;border-top:1px solid #e2e5ea;font:400 11.5px/1.3 'IBM Plex Sans',sans-serif;color:#5b6370;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">cislovani-verzi.png · 240 kB</div>
+                      <button type="button" title="Odebrat přílohu" style="position:absolute;top:7px;right:7px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:rgba(21,24,28,.6);cursor:pointer">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                      </button>
+                    </div>
+                    <div style="position:relative;border:1px solid #e2e5ea;border-radius:7px;overflow:hidden">
+                      <div style="height:128px;background:#1b1f25;display:flex;flex-direction:column;justify-content:flex-end">
+                        <div style="flex:1;display:flex;align-items:center;justify-content:center">
+                          <span style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="#1b1f25"><path d="M8 5l12 7-12 7z"></path></svg>
+                          </span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;padding:7px 9px;background:rgba(0,0,0,.35)">
+                          <span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#fff">0:00</span>
+                          <span style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35);display:block"></span>
+                          <span style="font:400 10.5px/1 'IBM Plex Mono',monospace;color:#fff">1:12</span>
+                        </div>
+                      </div>
+                      <div style="padding:7px 9px;border-top:1px solid #e2e5ea;font:400 11.5px/1.3 'IBM Plex Sans',sans-serif;color:#5b6370;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">reprodukce.mp4 · 24,3 MB</div>
+                      <button type="button" title="Odebrat přílohu" style="position:absolute;top:7px;right:7px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:rgba(21,24,28,.6);cursor:pointer">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                      </button>
+                    </div>
+                    <div style="position:relative;border:1px solid #e2e5ea;border-radius:7px;overflow:hidden">
+                      <div style="height:128px;background:#fafbfc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="1.6"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+                        <span style="display:inline-flex;align-items:center;gap:6px;font:400 12px/1 'IBM Plex Sans',sans-serif;color:#2f5bd0">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"></path></svg>
+                          Stáhnout
+                        </span>
+                      </div>
+                      <div style="padding:7px 9px;border-top:1px solid #e2e5ea;font:400 11.5px/1.3 'IBM Plex Sans',sans-serif;color:#5b6370;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">protokol-konfliktu.log · 180 kB</div>
+                      <button type="button" title="Odebrat přílohu" style="position:absolute;top:7px;right:7px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:#e7eaee;cursor:pointer">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5b6370" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div style="font:500 12px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8a919c">Na poradách — 3×</div>
+                <div style="margin-top:14px;display:flex;flex-direction:column">
+                  <div style="display:grid;grid-template-columns:14px minmax(0,1fr);gap:14px">
+                    <div style="display:flex;flex-direction:column;align-items:center">
+                      <span style="width:9px;height:9px;border-radius:50%;background:#c3c9d2;margin-top:5px;display:block"></span>
+                      <span style="flex:1;width:1px;background:#e2e5ea;display:block"></span>
+                    </div>
+                    <div style="padding-bottom:22px">
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <a href="#A7" style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#2f5bd0;text-decoration:none">Týden 35</a>
+                        <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">21. 8. 2026</span>
+                        <span style="padding:2px 6px;border-radius:4px;background:#f1f3f5;font:500 11px/1.4 'IBM Plex Mono',monospace;color:#5b6370">bod 5</span>
+                      </div>
+                      <div style="margin-top:9px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;color:#22262c;text-wrap:pretty">Poprvé na poradě. Eva to ukáže na testu 2, ať víme, o čem přesně mluvíme.</div>
+                      <div style="margin-top:9px;padding-left:11px;border-left:2px solid #dfe3e8;font:400 13px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370;text-wrap:pretty"><span style="font:500 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#a2a9b4;display:block;margin-bottom:4px">Akce / výsledek</span>Zjistit, jak se čísluje po sloučení. Jan se podívá do kódu.</div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:14px minmax(0,1fr);gap:14px">
+                    <div style="display:flex;flex-direction:column;align-items:center">
+                      <span style="width:9px;height:9px;border-radius:50%;background:#c3c9d2;margin-top:5px;display:block"></span>
+                      <span style="flex:1;width:1px;background:#e2e5ea;display:block"></span>
+                    </div>
+                    <div style="padding-bottom:22px">
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <a href="#A7" style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#2f5bd0;text-decoration:none">Týden 37</a>
+                        <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">11. 9. 2026</span>
+                        <span style="padding:2px 6px;border-radius:4px;background:#f1f3f5;font:500 11px/1.4 'IBM Plex Mono',monospace;color:#5b6370">bod 2</span>
+                      </div>
+                      <div style="margin-top:9px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;color:#22262c;text-wrap:pretty">Jan potvrdil: čísla se přepisují už při otevření náhledu sloučení.</div>
+                      <div style="margin-top:9px;font:400 12.5px/1.5 'IBM Plex Sans',sans-serif;color:#a2a9b4">Akce / výsledek — bez zápisu</div>
+                    </div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:14px minmax(0,1fr);gap:14px">
+                    <div style="display:flex;flex-direction:column;align-items:center">
+                      <span style="width:9px;height:9px;border-radius:50%;background:#2f5bd0;margin-top:5px;display:block"></span>
+                    </div>
+                    <div>
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <a href="#A7" style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#2f5bd0;text-decoration:none">Týden 38</a>
+                        <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">18. 9. 2026</span>
+                        <span style="padding:2px 6px;border-radius:4px;background:#e9eefb;font:500 11px/1.4 'IBM Plex Mono',monospace;color:#2549ae">bod 1</span>
+                      </div>
+                      <div style="margin-top:9px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;color:#22262c;text-wrap:pretty">Návrh: číslovat verze až po potvrzení sloučení. Chce to rozhodnutí, ne diskuzi.</div>
+                      <div style="margin-top:9px;padding-left:11px;border-left:2px solid #dfe3e8;font:400 13px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370;text-wrap:pretty"><span style="font:500 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#a2a9b4;display:block;margin-bottom:4px">Akce / výsledek</span>Dohodnuto — verze se přečíslují až po potvrzení. Jan implementuje do pátku.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;margin:72px 0 16px">
+    <span style="font:600 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#8a919c;white-space:nowrap">Porady a program</span>
+    <span style="flex:1;height:1px;background:#d7dbe1"></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:72px 64px;align-items:flex-start">
+
+    <div id="A6" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A6</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Porady — admin</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">/porady · přepínač archivu funguje</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="porady" hint-size="100%,57px"></dc-import>
+        <div style="padding:26px 32px 0;flex:1;min-height:0">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+            <div>
+              <h1 style="margin:0;font:600 20px/1.2 'IBM Plex Sans',sans-serif;letter-spacing:-.01em">Porady</h1>
+              <div style="margin-top:5px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">Nejbližší porada je v pátek 25. 9. 2026.</div>
+            </div>
+            <button type="button" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:none;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer" style-hover="background:#2549ae">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+              Nová porada
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:140px 130px minmax(0,1fr) 120px;gap:16px;align-items:center;margin-top:24px;padding-bottom:9px;border-bottom:1px solid #dfe3e8">
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Datum</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Týden</span>
+            <span style="font:500 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8a919c">Program</span>
+            <span></span>
+          </div>
+          <sc-for list="{{ meetingRows }}" as="m" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:140px 130px minmax(0,1fr) 120px;gap:16px;align-items:center;padding:13px 0;border-bottom:1px solid #f0f2f4" style-hover="background:#fafbfc">
+              <a href="#A7" style="font:500 14.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;text-decoration:none" style-hover="color:#2f5bd0">{{ m.date }}</a>
+              <span style="font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370">{{ m.week }}</span>
+              <span style="font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370">{{ m.itemsLabel }}</span>
+              <span style="display:flex;justify-content:flex-end">
+                <sc-if value="{{ m.future }}"><span style="padding:3px 8px;border:1px solid #c9d6f5;border-radius:4px;background:#f2f5fd;font:500 11px/1.4 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#2549ae">Připravuje se</span></sc-if>
+                <sc-if value="{{ m.archived }}"><span style="padding:3px 8px;border:1px solid #e2e5ea;border-radius:4px;background:#f7f8f9;font:500 11px/1.4 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#8a919c">Archiv</span></sc-if>
+              </span>
+            </div>
+          </sc-for>
+          <div style="margin-top:18px">
+            <button type="button" onClick="{{ toggleArchive }}" style="display:flex;align-items:center;gap:8px;height:30px;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer" style-hover="background:#f7f8f9">
+              <sc-if value="{{ archiveOn }}"><span style="width:14px;height:14px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:#2f5bd0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg></span></sc-if>
+              <sc-if value="{{ archiveOff }}" hint-placeholder-val="{{ true }}"><span style="width:14px;height:14px;border:1.5px solid #c3c9d2;border-radius:3px;display:block"></span></sc-if>
+              Zobrazit archiv
+            </button>
+            <div style="margin-top:8px;font:400 12px/1.5 'IBM Plex Sans',sans-serif;color:#a2a9b4">Porady starší než 365 dní. Nic se nemaže, jejich odkazy fungují dál.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="A7" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A7</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Program porady — admin, sestavuje</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">/porada/2026-w38</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="porady" hint-size="100%,57px"></dc-import>
+        <div style="flex:1;min-height:0;padding:24px 32px;overflow:hidden">
+          <div style="max-width:1040px">
+            <a href="#A6" style="display:inline-flex;align-items:center;gap:6px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370;text-decoration:none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"></path></svg>
+              Porady
+            </a>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:32px;margin-top:12px">
+              <div>
+                <h1 style="margin:0;font:600 23px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:-.01em">Porada — týden 38 (2026)</h1>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                  <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#5b6370">18. 9. 2026</span>
+                  <button type="button" style="height:24px;padding:0 8px;border:1px solid #d9dde3;border-radius:5px;background:#fff;font:400 12px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer" style-hover="background:#f7f8f9;color:#15181c">Upravit datum</button>
+                  <span style="width:1px;height:14px;background:#dfe3e8;display:block"></span>
+                  <span style="font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">6 bodů · vytvořil Petr Admin</span>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex:none">
+                <a href="#A10" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:none;border-radius:6px;background:#2f5bd0;font:500 13px/1 'IBM Plex Sans',sans-serif;color:#fff;text-decoration:none" style-hover="background:#2549ae">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  Přidat problémy
+                </a>
+                <a href="#B3" style="display:flex;align-items:center;height:34px;padding:0 13px;border:1px solid #e8d5d2;border-radius:6px;background:#fff;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#b03a2b;text-decoration:none" style-hover="background:#fdf3f2">Smazat poradu</a>
+              </div>
+            </div>
+
+            <div style="margin-top:20px;padding:13px 15px;border:1px solid #e2e5ea;border-radius:8px;background:#fafbfc">
+              <label style="font:500 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8a919c">Poznámka k celé poradě</label>
+              <textarea style="display:block;width:100%;box-sizing:border-box;margin-top:7px;padding:8px 10px;height:44px;border:1px solid transparent;border-radius:6px;background:#fff;font:400 14px/1.5 'IBM Plex Sans',sans-serif;color:#22262c;resize:none;outline:none" style-hover="border-color:#d9dde3" style-focus="border-color:#2f5bd0;box-shadow:0 0 0 3px rgba(47,91,208,.12)">Analytici dorazí až v 10:00, začínáme body 1–3 bez nich.</textarea>
+            </div>
+
+            <sc-for list="{{ agendaItems }}" as="it" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:start;padding:18px 0;border-bottom:1px solid #f0f2f4">
+                <button type="button" title="Přetažením změníte pořadí" style="width:22px;height:26px;display:flex;align-items:center;justify-content:center;border:none;background:transparent;cursor:grab;padding:0">
+                  <svg width="12" height="18" viewBox="0 0 12 18" fill="#c3c9d2"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg>
+                </button>
+                <span style="font:500 17px/1.3 'IBM Plex Mono',monospace;color:#8a919c">{{ it.num }}</span>
+                <div style="min-width:0">
+                  <div style="display:flex;align-items:flex-start;gap:16px">
+                    <div style="flex:1;min-width:0">
+                      <sc-if value="{{ it.notDone }}"><div style="font:600 16.5px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;text-wrap:pretty">{{ it.title }}</div></sc-if>
+                      <sc-if value="{{ it.done }}">
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <span style="font:400 16.5px/1.4 'IBM Plex Sans',sans-serif;color:#8a919c;text-decoration:line-through;text-wrap:pretty">{{ it.title }}</span>
+                          <span style="flex:none;padding:3px 7px;border:1px solid #bfe0cb;border-radius:4px;background:#f1f8f3;font:500 10.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#167a3e">Vyřešeno</span>
+                        </div>
+                      </sc-if>
+                      <div style="margin-top:6px;font:400 13.5px/1.65 'IBM Plex Sans',sans-serif;color:#5b6370;text-wrap:pretty">{{ it.desc }}</div>
+                      <sc-if value="{{ it.hasLink }}">
+                        <a href="#" style="display:inline-block;margin-top:7px;font:400 12.5px/1 'IBM Plex Mono',monospace;color:#2f5bd0;text-decoration:none">{{ it.link }}</a>
+                      </sc-if>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex:none">
+                      <sc-if value="{{ it.notDone }}">
+                        <button type="button" onClick="{{ it.toggle }}" style="display:flex;align-items:center;gap:6px;height:28px;padding:0 9px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 12px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer" style-hover="border-color:#bfe0cb;background:#f1f8f3;color:#167a3e">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg>
+                          Vyřešeno
+                        </button>
+                      </sc-if>
+                      <sc-if value="{{ it.done }}">
+                        <button type="button" onClick="{{ it.toggle }}" style="height:28px;padding:0 9px;border:1px solid #bfe0cb;border-radius:6px;background:#f1f8f3;font:400 12px/1 'IBM Plex Sans',sans-serif;color:#167a3e;cursor:pointer">Vrátit mezi nevyřešené</button>
+                      </sc-if>
+                      <button type="button" title="Odebrat z programu" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1px solid #d9dde3;border-radius:6px;background:#fff;cursor:pointer" style-hover="border-color:#e8d5d2;background:#fdf3f2">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <sc-if value="{{ it.hasAtt }}">
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:11px">
+                      <sc-for list="{{ it.att }}" as="a" hint-placeholder-count="1">
+                        <div style="display:flex;flex-direction:column;border:1px solid #e2e5ea;border-radius:6px;overflow:hidden;width:132px">
+                          <sc-if value="{{ a.isImg }}"><span style="height:74px;background:#e7eaee;display:flex;align-items:center;justify-content:center;font:400 10px/1 'IBM Plex Mono',monospace;color:#8a919c">snímek</span></sc-if>
+                          <sc-if value="{{ a.isVideo }}"><span style="height:74px;background:#1b1f25;display:flex;align-items:center;justify-content:center"><span style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="#1b1f25"><path d="M8 5l12 7-12 7z"></path></svg></span></span></sc-if>
+                          <sc-if value="{{ a.isFile }}"><span style="height:74px;background:#fafbfc;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="1.6"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg></span></sc-if>
+                          <span style="padding:5px 7px;border-top:1px solid #e2e5ea;font:400 10.5px/1.3 'IBM Plex Sans',sans-serif;color:#5b6370;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.name }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+
+                  <div style="margin-top:13px">
+                    <label style="font:500 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8a919c">Poznámka k přípravě</label>
+                    <textarea style="display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:9px 11px;height:52px;border:1px solid #e2e5ea;border-radius:7px;background:#fff;font:400 14.5px/1.55 'IBM Plex Sans',sans-serif;color:#22262c;resize:none;outline:none" style-hover="border-color:#c9cfd7" style-focus="border-color:#2f5bd0;box-shadow:0 0 0 3px rgba(47,91,208,.12)">{{ it.prep }}</textarea>
+                  </div>
+
+                  <div style="display:flex;align-items:flex-start;gap:9px;margin-top:9px;padding-left:11px;border-left:2px solid #eef0f2">
+                    <span style="font:500 11px/1.9 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#a2a9b4;white-space:nowrap">Akce / výsledek</span>
+                    <sc-if value="{{ it.hasAction }}">
+                      <textarea style="flex:1;box-sizing:border-box;padding:4px 7px;height:34px;border:1px solid transparent;border-radius:6px;background:transparent;font:400 13px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370;resize:none;outline:none" style-hover="border-color:#e2e5ea;background:#fff" style-focus="border-color:#2f5bd0;background:#fff">{{ it.action }}</textarea>
+                    </sc-if>
+                    <sc-if value="{{ it.noAction }}">
+                      <textarea placeholder="Doplní se po poradě" style="flex:1;box-sizing:border-box;padding:4px 7px;height:26px;border:1px solid transparent;border-radius:6px;background:transparent;font:400 13px/1.4 'IBM Plex Sans',sans-serif;color:#5b6370;resize:none;outline:none" style-hover="border-color:#e2e5ea;background:#fff" style-focus="border-color:#2f5bd0;background:#fff"></textarea>
+                    </sc-if>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:72px 64px;align-items:flex-start;margin-top:72px">
+
+    <div id="A8" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#2f5bd0;padding:5px 7px;border-radius:4px">A8</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Program porady — anonymní, promítané</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">/porada/2026-w38 · bez jediného ovládacího prvku</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="" active="porady" hint-size="100%,57px"></dc-import>
+        <div style="flex:1;min-height:0;padding:40px 72px;overflow:hidden">
+          <div style="max-width:1140px">
+            <div style="display:flex;align-items:baseline;gap:18px">
+              <h1 style="margin:0;font:600 32px/1.2 'IBM Plex Sans',sans-serif;letter-spacing:-.02em">Porada — týden 38 (2026)</h1>
+              <span style="font:400 20px/1 'IBM Plex Sans',sans-serif;color:#8a919c">18. 9. 2026</span>
+            </div>
+            <div style="margin-top:20px;padding:16px 20px;border-left:3px solid #2f5bd0;background:#f6f8fd">
+              <div style="font:400 20px/1.5 'IBM Plex Sans',sans-serif;color:#22262c">Analytici dorazí až v 10:00, začínáme body 1–3 bez nich.</div>
+            </div>
+            <div style="margin-top:34px;display:flex;flex-direction:column;gap:34px">
+              <div style="display:grid;grid-template-columns:62px minmax(0,1fr);gap:20px;align-items:start">
+                <span style="font:500 34px/1 'IBM Plex Mono',monospace;color:#c3c9d2;text-align:right">1.</span>
+                <div style="min-width:0">
+                  <div style="font:600 27px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:-.01em;text-wrap:pretty">Chybné číslování verzí po sloučení velkého konfliktu</div>
+                  <div style="margin-top:10px;font:400 18px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370;max-width:960px;text-wrap:pretty">Po sloučení konfliktu nad 2 000 řádky se verze přečíslují už ve chvíli, kdy si uživatel jen otevře náhled sloučení. Když sloučení nepotvrdí, čísla verzí zůstanou přeskočená a v protokolu chybí.</div>
+                  <div style="margin-top:12px;font:400 16px/1 'IBM Plex Mono',monospace;color:#2f5bd0">jira.interni/browse/KONF-1391</div>
+                  <div style="display:flex;gap:14px;margin-top:18px">
+                    <div style="width:280px;height:170px;border:1px solid #e2e5ea;border-radius:8px;background:#e7eaee;display:flex;align-items:center;justify-content:center;font:400 13px/1 'IBM Plex Mono',monospace;color:#8a919c">cislovani-verzi.png</div>
+                  </div>
+                  <div style="margin-top:20px;padding:16px 20px;border:1px solid #e2e5ea;border-radius:10px;background:#fafbfc">
+                    <div style="font:500 13px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8a919c">Poznámka k přípravě</div>
+                    <div style="margin-top:9px;font:400 21px/1.5 'IBM Plex Sans',sans-serif;color:#15181c;text-wrap:pretty">Návrh: číslovat verze až po potvrzení sloučení. Chce to rozhodnutí, ne diskuzi.</div>
+                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #e7eaee">
+                      <div style="font:500 13px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">Akce / výsledek</div>
+                      <div style="margin-top:8px;font:400 18px/1.55 'IBM Plex Sans',sans-serif;color:#5b6370;text-wrap:pretty">Dohodnuto — verze se přečíslují až po potvrzení. Jan implementuje do pátku.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:62px minmax(0,1fr);gap:20px;align-items:start">
+                <span style="font:500 34px/1 'IBM Plex Mono',monospace;color:#c3c9d2;text-align:right">2.</span>
+                <div style="min-width:0">
+                  <div style="font:600 27px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:-.01em;text-wrap:pretty">Tlačítko „Vyřešit vše“ nejde zrušit</div>
+                  <div style="margin-top:10px;font:400 18px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370;max-width:960px;text-wrap:pretty">Po kliknutí na „Vyřešit vše“ se akce spustí okamžitě a nejde ji přerušit ani vrátit. U velkých konfliktů běží několik minut.</div>
+                  <div style="margin-top:20px;padding:16px 20px;border:1px solid #e2e5ea;border-radius:10px;background:#fafbfc">
+                    <div style="font:500 13px/1 'IBM Plex Sans',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8a919c">Poznámka k přípravě</div>
+                    <div style="margin-top:9px;font:400 21px/1.5 'IBM Plex Sans',sans-serif;color:#15181c;text-wrap:pretty">Vrací se potřetí. Buď to tento týden zavřeme, nebo to chce vlastníka.</div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:62px minmax(0,1fr);gap:20px;align-items:start">
+                <span style="font:500 34px/1 'IBM Plex Mono',monospace;color:#c3c9d2;text-align:right">3.</span>
+                <div style="min-width:0">
+                  <div style="font:600 27px/1.3 'IBM Plex Sans',sans-serif;letter-spacing:-.01em;text-wrap:pretty">Konflikt se neuloží při současné editaci dvou uživatelů</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="A10" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A10</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Přidat problémy na program</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">překryv nad /porada/2026-w38 · výběr funguje</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;position:relative;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="porady" hint-size="100%,57px"></dc-import>
+        <div style="flex:1;min-height:0;padding:24px 32px;overflow:hidden">
+          <div style="max-width:1040px">
+            <h1 style="margin:0;font:600 23px/1.3 'IBM Plex Sans',sans-serif">Porada — týden 38 (2026)</h1>
+            <div style="margin-top:8px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">18. 9. 2026 · 6 bodů · vytvořil Petr Admin</div>
+            <sc-for list="{{ agendaItems }}" as="it" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:12px;padding:14px 0;border-bottom:1px solid #f0f2f4">
+                <span style="font:500 15px/1.3 'IBM Plex Mono',monospace;color:#c3c9d2">{{ it.num }}</span>
+                <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#8a919c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.title }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(21,24,28,.32);display:flex;align-items:center;justify-content:center">
+          <div style="width:900px;max-height:760px;background:#fff;border-radius:10px;box-shadow:0 18px 48px rgba(21,24,28,.25);display:flex;flex-direction:column;overflow:hidden">
+            <div style="flex:none;display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 0">
+              <div>
+                <div style="font:600 17px/1.3 'IBM Plex Sans',sans-serif">Přidat problémy na program</div>
+                <div style="margin-top:5px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">Porada — týden 38 (2026) · vybrané body se přidají na konec programu</div>
+              </div>
+              <button type="button" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;border-radius:6px;background:transparent;cursor:pointer" style-hover="background:#f1f3f5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b6370" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+              </button>
+            </div>
+            <div style="flex:none;display:flex;align-items:center;gap:12px;padding:16px 24px">
+              <div style="position:relative;width:280px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a919c" stroke-width="2" stroke-linecap="round" style="position:absolute;left:10px;top:9px"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4.3-4.3"></path></svg>
+                <input type="text" placeholder="Hledat v problémech…" style="width:100%;height:33px;box-sizing:border-box;padding:0 10px 0 31px;border:1px solid #d9dde3;border-radius:6px;font:400 13px/1 'IBM Plex Sans',sans-serif;outline:none">
+              </div>
+              <div style="flex:1"></div>
+              <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">Řadit</span>
+              <select style="height:33px;padding:0 30px 0 10px;border:1px solid #d9dde3;border-radius:6px;background:#fff;-webkit-appearance:none;appearance:none;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">
+                <option>nejčastěji na poradě</option>
+                <option>nejnovější</option>
+                <option>nejstarší</option>
+              </select>
+            </div>
+            <div style="flex:1;min-height:0;overflow:auto;padding:0 24px">
+              <sc-for list="{{ pickerRows }}" as="r" hint-placeholder-count="7">
+                <div style="display:grid;grid-template-columns:22px minmax(0,1fr) 140px 100px 52px;gap:14px;align-items:center;padding:12px 0;border-top:1px solid #f0f2f4">
+                  <sc-if value="{{ r.unpicked }}"><button type="button" onClick="{{ r.toggle }}" style="width:17px;height:17px;border:1.5px solid #c3c9d2;border-radius:4px;background:#fff;cursor:pointer;padding:0" style-hover="border-color:#2f5bd0"></button></sc-if>
+                  <sc-if value="{{ r.picked }}"><button type="button" onClick="{{ r.toggle }}" style="width:17px;height:17px;display:flex;align-items:center;justify-content:center;border:none;border-radius:4px;background:#2f5bd0;cursor:pointer;padding:0"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"></path></svg></button></sc-if>
+                  <sc-if value="{{ r.onAgenda }}"><span style="width:17px;height:17px;border:1.5px solid #e2e5ea;border-radius:4px;background:#f1f3f5;display:block"></span></sc-if>
+                  <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                    <sc-if value="{{ r.selectable }}"><span style="font:500 14px/1.35 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span></sc-if>
+                    <sc-if value="{{ r.onAgenda }}"><span style="font:400 14px/1.35 'IBM Plex Sans',sans-serif;color:#a2a9b4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</span></sc-if>
+                    <sc-if value="{{ r.onAgenda }}"><span style="flex:none;padding:2px 7px;border:1px solid #e2e5ea;border-radius:4px;background:#f7f8f9;font:500 10.5px/1.4 'IBM Plex Sans',sans-serif;letter-spacing:.04em;text-transform:uppercase;color:#8a919c">Už na programu</span></sc-if>
+                  </div>
+                  <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.author }}</span>
+                  <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#a2a9b4">{{ r.age }}</span>
+                  <span style="display:flex;justify-content:flex-end">
+                    <sc-if value="{{ r.badgeZero }}"><span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#c5cad1">—</span></sc-if>
+                    <sc-if value="{{ r.badgeLow }}"><span style="padding:3px 8px;border-radius:4px;background:#f1f3f5;font:500 12px/1.2 'IBM Plex Mono',monospace;color:#5b6370">{{ r.badgeText }}</span></sc-if>
+                    <sc-if value="{{ r.badgeHigh }}"><span style="padding:3px 8px;border-radius:4px;background:#fdf1de;font:500 12.5px/1.2 'IBM Plex Mono',monospace;color:#94540a">{{ r.badgeText }}</span></sc-if>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-top:1px solid #e2e5ea;background:#fafbfc">
+              <span style="font:400 12px/1.4 'IBM Plex Sans',sans-serif;color:#8a919c">Vyřešené problémy se v seznamu nenabízejí.</span>
+              <span style="display:flex;align-items:center;gap:9px">
+                <button type="button" style="height:34px;padding:0 14px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit</button>
+                <sc-if value="{{ pickSome }}"><button type="button" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer" style-hover="background:#2549ae">{{ pickLabel }}</button></sc-if>
+                <sc-if value="{{ pickNone }}" hint-placeholder-val="{{ true }}"><button type="button" disabled="{{ true }}" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#e7eaee;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#a2a9b4;cursor:not-allowed">Přidat na program</button></sc-if>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;margin:72px 0 16px">
+    <span style="font:600 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#8a919c;white-space:nowrap">Tisk programu · A4</span>
+    <span style="flex:1;height:1px;background:#d7dbe1"></span>
+  </div>
+  <div id="A9" style="display:flex;flex-direction:column;gap:10px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#15181c;padding:5px 7px;border-radius:4px">A9</span>
+      <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Program porady — tisk (Ctrl+P)</span>
+      <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">@media print · 794 × 1123 · černobíle</span>
+    </div>
+    <div style="display:flex;gap:40px;align-items:flex-start;width:fit-content">
+      <div style="flex:none;width:794px;height:1123px;background:#fff;border:1px solid #d7dbe1;box-shadow:0 1px 3px rgba(21,24,28,.06);padding:56px 56px 40px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1.5px solid #000">
+          <span style="font:600 20px/1.3 'IBM Plex Sans',sans-serif;color:#000">Porada — týden 38 (2026)</span>
+          <span style="font:400 14px/1.3 'IBM Plex Sans',sans-serif;color:#000">18. 9. 2026</span>
+        </div>
+        <div style="margin-top:16px;padding:10px 14px;border:1px solid #999">
+          <div style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Analytici dorazí až v 10:00, začínáme body 1–3 bez nich.</div>
+        </div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">1.</span>
+            <div>
+              <div style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Chybné číslování verzí po sloučení velkého konfliktu</div>
+              <div style="margin-top:5px;font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Po sloučení konfliktu nad 2 000 řádky se verze přečíslují už ve chvíli, kdy si uživatel jen otevře náhled sloučení. Když sloučení nepotvrdí, čísla verzí zůstanou přeskočená a v protokolu chybí.</div>
+              <div style="margin-top:5px;font:400 13.5px/1.4 'IBM Plex Sans',sans-serif;color:#000">Odkaz: jira.interni/browse/KONF-1391</div>
+              <div style="display:flex;gap:10px;margin-top:9px">
+                <div style="width:190px;height:112px;border:1px solid #999;background:#e9e9e9;display:flex;align-items:flex-end;padding:6px;box-sizing:border-box;font:400 10.5px/1.3 'IBM Plex Sans',sans-serif;color:#333">cislovani-verzi.png</div>
+              </div>
+              <div style="margin-top:9px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Poznámka k přípravě: </span><span style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Návrh: číslovat verze až po potvrzení sloučení. Chce to rozhodnutí, ne diskuzi.</span></div>
+              <div style="margin-top:5px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Akce / výsledek: </span><span style="font:400 14px/1.5 'IBM Plex Sans',sans-serif;color:#000">Dohodnuto — verze se přečíslují až po potvrzení. Jan implementuje do pátku.</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding-top:14px;border-top:1px solid #ccc">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">2.</span>
+            <div>
+              <div style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Tlačítko „Vyřešit vše“ nejde zrušit</div>
+              <div style="margin-top:5px;font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Po kliknutí na „Vyřešit vše“ se akce spustí okamžitě a nejde ji přerušit ani vrátit. U velkých konfliktů běží několik minut.</div>
+              <div style="margin-top:9px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Poznámka k přípravě: </span><span style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Vrací se potřetí. Buď to tento týden zavřeme, nebo to chce vlastníka.</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding-top:14px;border-top:1px solid #ccc">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">3.</span>
+            <div>
+              <div style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Konflikt se neuloží při současné editaci dvou uživatelů</div>
+              <div style="margin-top:5px;font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Když dva uživatelé otevřou stejný konflikt a oba uloží, druhé uložení projde bez chyby, ale změna se neuloží.</div>
+              <div style="margin-top:5px;font:400 13.5px/1.4 'IBM Plex Sans',sans-serif;color:#000">Odkaz: jira.interni/browse/KONF-1482</div>
+              <div style="display:flex;gap:10px;margin-top:9px">
+                <div style="width:190px;height:112px;border:1px solid #999;background:#e9e9e9;display:flex;align-items:flex-end;padding:6px;box-sizing:border-box;font:400 10.5px/1.3 'IBM Plex Sans',sans-serif;color:#333">dve-editace.png</div>
+                <div style="width:190px;height:112px;border:1px solid #999;background:#f3f3f3;display:flex;flex-direction:column;justify-content:space-between;padding:6px;box-sizing:border-box">
+                  <span style="font:600 10.5px/1.3 'IBM Plex Sans',sans-serif;color:#000">Videozáznam</span>
+                  <span style="font:400 10.5px/1.4 'IBM Plex Sans',sans-serif;color:#333">reprodukce.mp4 · 1:12 · 24,3 MB</span>
+                </div>
+              </div>
+              <div style="margin-top:9px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Poznámka k přípravě: </span><span style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Reprodukovatelné jen na testu 2, potřebujeme od analytiků potvrdit očekávané chování.</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding-top:14px;border-top:1px solid #ccc">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">4.</span>
+            <div>
+              <div style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Import nad 5 000 řádků spadne na timeout</div>
+              <div style="margin-top:5px;font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Import se po 60 sekundách ukončí chybou a rozpracovaný dávkový soubor zůstane ve frontě.</div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:10px;border-top:1px solid #ccc">
+          <span style="font:400 11px/1 'IBM Plex Sans',sans-serif;color:#333">Velké konflikty — příprava · /porada/2026-w38</span>
+          <span style="font:400 11px/1 'IBM Plex Sans',sans-serif;color:#333">1 / 2</span>
+        </div>
+      </div>
+      <div style="flex:none;width:794px;height:1123px;background:#fff;border:1px solid #d7dbe1;box-shadow:0 1px 3px rgba(21,24,28,.06);padding:56px 56px 40px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding-bottom:10px;border-bottom:1.5px solid #000">
+          <span style="font:600 20px/1.3 'IBM Plex Sans',sans-serif;color:#000">Porada — týden 38 (2026)</span>
+          <span style="font:400 14px/1.3 'IBM Plex Sans',sans-serif;color:#000">18. 9. 2026</span>
+        </div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">4.</span>
+            <div>
+              <div style="font:400 12.5px/1.3 'IBM Plex Sans',sans-serif;color:#333">pokračování bodu 4 — Import nad 5 000 řádků spadne na timeout</div>
+              <div style="margin-top:9px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Poznámka k přípravě: </span><span style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Zvedneme timeout, nebo dávkovat po 1 000 řádcích? Potřebujeme čísla z produkce.</span></div>
+              <div style="margin-top:5px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Akce / výsledek: </span><span style="font:400 14px/1.5 'IBM Plex Sans',sans-serif;color:#000">Odloženo na příští týden, chybí data z produkce.</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding-top:14px;border-top:1px solid #ccc">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">5.</span>
+            <div>
+              <div style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Uživatel nevidí, kdo konflikt vyřešil</div>
+              <div style="margin-top:5px;font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">V detailu vyřešeného konfliktu chybí jméno a čas. Analytici se pak ptají e-mailem.</div>
+              <div style="display:flex;gap:10px;margin-top:9px">
+                <div style="width:190px;height:112px;border:1px solid #999;background:#e9e9e9;display:flex;align-items:flex-end;padding:6px;box-sizing:border-box;font:400 10.5px/1.3 'IBM Plex Sans',sans-serif;color:#333">detail-konfliktu.png</div>
+              </div>
+              <div style="margin-top:9px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Poznámka k přípravě: </span><span style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Do detailu konfliktu přidat kdo a kdy. Malá věc, jen potvrdit rozsah.</span></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;padding-top:14px;border-top:1px solid #ccc">
+            <span style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000">6.</span>
+            <div>
+              <div style="font:600 17px/1.35 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Export protokolu konfliktů chybí ve starších verzích</div>
+              <div style="margin-top:5px;font:400 14.5px/1.5 'IBM Plex Sans',sans-serif;color:#000;text-wrap:pretty">Na instalacích verze 4.2 a nižší se v protokolu nezobrazí tlačítko exportu. Zákazník to reklamoval dvakrát.</div>
+              <div style="margin-top:9px;padding:7px 10px;border:1px solid #999">
+                <span style="font:400 12.5px/1.4 'IBM Plex Sans',sans-serif;color:#000">Příloha ke stažení: protokol-konfliktu.log · text/plain · 180 kB</span>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:9px">
+                <div style="width:190px;height:112px;border:1px solid #999;background:#e9e9e9;display:flex;align-items:flex-end;padding:6px;box-sizing:border-box;font:400 10.5px/1.3 'IBM Plex Sans',sans-serif;color:#333">chybejici-export.png</div>
+              </div>
+              <div style="margin-top:9px"><span style="font:600 13.5px/1.5 'IBM Plex Sans',sans-serif;color:#000">Poznámka k přípravě: </span><span style="font:400 15px/1.5 'IBM Plex Sans',sans-serif;color:#000">Zjistit, od které verze export chybí. Bez toho nemá cenu to plánovat.</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:10px;border-top:1px solid #ccc">
+          <span style="font:400 11px/1 'IBM Plex Sans',sans-serif;color:#333">Velké konflikty — příprava · /porada/2026-w38</span>
+          <span style="font:400 11px/1 'IBM Plex Sans',sans-serif;color:#333">2 / 2</span>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:900px;margin-top:6px;font:400 12.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Pravidla tisku: hlavička aplikace, navigace a všechna ovládací tlačítka se skryjí, poznámky se vypisují celé, odkazy se tisknou jako text. Bod se snaží nelámat (<span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px">break-inside: avoid</span>); pokud se nevejde, láme se za popisem a na další straně pokračuje řádkem <span style="font-style:italic">pokračování bodu N</span>. Barva se nepoužívá.</div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;margin:72px 0 16px">
+    <span style="font:600 11.5px/1 'IBM Plex Sans',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#8a919c;white-space:nowrap">Dialogy, chyby a přetahování</span>
+    <span style="flex:1;height:1px;background:#d7dbe1"></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:56px 48px;align-items:flex-start">
+
+    <div id="B1" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#5b6370;padding:5px 7px;border-radius:4px">B1</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Přihlášení</span>
+      </div>
+      <div style="width:700px;height:460px;background:#f7f8f9;border:1px solid #d7dbe1;border-radius:3px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:0;background:rgba(21,24,28,.3)"></div>
+        <div style="position:relative;width:388px;background:#fff;border-radius:10px;box-shadow:0 18px 48px rgba(21,24,28,.25);padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="font:600 16.5px/1 'IBM Plex Sans',sans-serif">Přihlášení</span>
+            <button type="button" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:6px;background:transparent;cursor:pointer" style-hover="background:#f1f3f5">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5b6370" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:18px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif">Uživatelské jméno</label>
+              <input type="text" value="petr" style="height:36px;box-sizing:border-box;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;font:400 14px/1 'IBM Plex Sans',sans-serif;outline:none">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif">Heslo</label>
+              <input type="password" value="tajneheslo" style="height:36px;box-sizing:border-box;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;font:400 14px/1 'IBM Plex Sans',sans-serif;outline:none">
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:20px">
+            <button type="button" style="height:34px;padding:0 14px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit</button>
+            <button type="button" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer">Přihlásit se</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="B2" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#5b6370;padding:5px 7px;border-radius:4px">B2</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Nová porada</span>
+      </div>
+      <div style="width:700px;height:460px;background:#f7f8f9;border:1px solid #d7dbe1;border-radius:3px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center">
+        <div style="position:absolute;inset:0;background:rgba(21,24,28,.3)"></div>
+        <div style="position:relative;width:436px;background:#fff;border-radius:10px;box-shadow:0 18px 48px rgba(21,24,28,.25);padding:22px">
+          <div style="font:600 16.5px/1 'IBM Plex Sans',sans-serif">Nová porada</div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:18px">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif">Datum porady</label>
+              <input type="date" value="2026-10-02" style="height:36px;box-sizing:border-box;padding:0 11px;border:1px solid #d9dde3;border-radius:6px;font:400 14px/1 'IBM Plex Sans',sans-serif;outline:none">
+              <span style="font:400 11.5px/1.5 'IBM Plex Sans',sans-serif;color:#a2a9b4">Adresa porady se vytvoří automaticky: <span style="font-family:'IBM Plex Mono',monospace">/porada/2026-w40</span></span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif">Poznámka k celé poradě <span style="color:#a2a9b4;font-weight:400">— nepovinné</span></label>
+              <textarea placeholder="Např. kdo se opozdí nebo čím začneme" style="height:72px;box-sizing:border-box;padding:9px 11px;border:1px solid #d9dde3;border-radius:6px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;resize:none;outline:none"></textarea>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:20px">
+            <button type="button" style="height:34px;padding:0 14px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit</button>
+            <button type="button" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#2f5bd0;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer">Vytvořit poradu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="B3" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#5b6370;padding:5px 7px;border-radius:4px">B3</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Potvrzení mazání — problém a porada</span>
+      </div>
+      <div style="display:flex;gap:24px;align-items:flex-start">
+        <div style="width:700px;height:520px;background:#f7f8f9;border:1px solid #d7dbe1;border-radius:3px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center">
+          <div style="position:absolute;inset:0;background:rgba(21,24,28,.3)"></div>
+          <div style="position:relative;width:468px;background:#fff;border-radius:10px;box-shadow:0 18px 48px rgba(21,24,28,.25);padding:22px">
+            <div style="font:600 16.5px/1.35 'IBM Plex Sans',sans-serif;text-wrap:pretty">Smazat problém „Chybné číslování verzí po sloučení velkého konfliktu“?</div>
+            <div style="margin-top:11px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Problém se smaže i ze tří porad, na kterých už byl. Zmizí z jejich programu včetně poznámek k přípravě a akcí:</div>
+            <div style="margin-top:12px;border:1px solid #e2e5ea;border-radius:7px;overflow:hidden">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #f0f2f4"><span style="font:500 13px/1 'IBM Plex Sans',sans-serif">Týden 35</span><span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">21. 8. 2026 · bod 5</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #f0f2f4"><span style="font:500 13px/1 'IBM Plex Sans',sans-serif">Týden 37</span><span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">11. 9. 2026 · bod 2</span></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px"><span style="font:500 13px/1 'IBM Plex Sans',sans-serif">Týden 38</span><span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#8a919c">18. 9. 2026 · bod 1</span></div>
+            </div>
+            <div style="margin-top:11px;font:400 12.5px/1.5 'IBM Plex Sans',sans-serif;color:#8a919c">Smazání nelze vzít zpět. Smažou se i 3 přílohy.</div>
+            <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:20px">
+              <button type="button" style="height:34px;padding:0 14px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit</button>
+              <button type="button" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#b03a2b;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer" style-hover="background:#96301f">Smazat problém</button>
+            </div>
+          </div>
+        </div>
+        <div style="width:700px;height:520px;background:#f7f8f9;border:1px solid #d7dbe1;border-radius:3px;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center">
+          <div style="position:absolute;inset:0;background:rgba(21,24,28,.3)"></div>
+          <div style="position:relative;width:468px;background:#fff;border-radius:10px;box-shadow:0 18px 48px rgba(21,24,28,.25);padding:22px">
+            <div style="font:600 16.5px/1.35 'IBM Plex Sans',sans-serif">Smazat poradu z 18. 9. 2026 (týden 38)?</div>
+            <div style="margin-top:11px;font:400 13.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Smaže se program porady se všemi 6 body, poznámka k celé poradě i poznámky k přípravě a akce u jednotlivých bodů. <span style="color:#15181c">Samotné problémy se nesmažou</span> — vrátí se mezi nevyřešené do zásobníku.</div>
+            <div style="margin-top:11px;font:400 12.5px/1.5 'IBM Plex Sans',sans-serif;color:#8a919c">Odkaz <span style="font-family:'IBM Plex Mono',monospace">/porada/2026-w38</span> přestane fungovat. Smazání nelze vzít zpět.</div>
+            <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:20px">
+              <button type="button" style="height:34px;padding:0 14px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Zrušit</button>
+              <button type="button" style="height:34px;padding:0 16px;border:none;border-radius:6px;background:#b03a2b;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff;cursor:pointer" style-hover="background:#96301f">Smazat poradu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="B4" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#5b6370;padding:5px 7px;border-radius:4px">B4</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Lightbox — obrázek a video</span>
+      </div>
+      <div style="width:1100px;height:700px;background:#15181c;border:1px solid #d7dbe1;border-radius:3px;overflow:hidden;position:relative;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 18px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff">cislovani-verzi.png</span>
+            <span style="font:400 11.5px/1 'IBM Plex Sans',sans-serif;color:rgba(255,255,255,.55)">240 kB · 1440 × 812 · příloha 1 z 3</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <a href="#" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:1px solid rgba(255,255,255,.28);border-radius:6px;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#fff;text-decoration:none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"></path></svg>
+              Stáhnout
+            </a>
+            <button type="button" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:6px;background:transparent;cursor:pointer">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </button>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px 18px;gap:18px">
+          <button type="button" style="width:38px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:transparent;cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"></path></svg>
+          </button>
+          <div style="flex:1;height:100%;background:#2a2f36;border-radius:4px;display:flex;align-items:center;justify-content:center;font:400 12px/1 'IBM Plex Mono',monospace;color:rgba(255,255,255,.4)">náhled obrázku v plné velikosti</div>
+          <button type="button" style="width:38px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:transparent;cursor:pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div style="width:1100px;height:420px;background:#15181c;border:1px solid #d7dbe1;border-radius:3px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 18px">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#fff">reprodukce.mp4</span>
+            <span style="font:400 11.5px/1 'IBM Plex Sans',sans-serif;color:rgba(255,255,255,.55)">24,3 MB · 1:12 · příloha 2 z 3</span>
+          </div>
+          <button type="button" style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:6px;background:transparent;cursor:pointer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+          </button>
+        </div>
+        <div style="flex:1;min-height:0;margin:0 18px 18px;background:#2a2f36;border-radius:4px;display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center">
+            <span style="width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#15181c"><path d="M8 5l12 7-12 7z"></path></svg>
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(0,0,0,.4)">
+            <span style="font:400 11.5px/1 'IBM Plex Mono',monospace;color:#fff">0:14</span>
+            <span style="flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.3);display:block;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:19%;background:#fff;display:block"></span></span>
+            <span style="font:400 11.5px/1 'IBM Plex Mono',monospace;color:#fff">1:12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="B5" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#5b6370;padding:5px 7px;border-radius:4px">B5</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Chybové a validační stavy</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">všechna tři odmítnutí nahrávání</span>
+      </div>
+      <div style="width:900px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;padding:24px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px">
+        <div>
+          <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">1 · Chyba pole</div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;max-width:420px">
+            <label style="font:500 12.5px/1 'IBM Plex Sans',sans-serif">Název <span style="color:#c0392b">*</span></label>
+            <input type="text" value="" style="height:36px;box-sizing:border-box;padding:0 11px;border:1px solid #c0392b;border-radius:6px;background:#fdf7f6;font:400 14px/1 'IBM Plex Sans',sans-serif;outline:none">
+            <span style="display:flex;align-items:center;gap:6px;font:400 12.5px/1.4 'IBM Plex Sans',sans-serif;color:#b03a2b">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16.2v.3"></path></svg>
+              Vyplňte název problému.
+            </span>
+          </div>
+        </div>
+        <div style="height:1px;background:#eef0f2"></div>
+        <div>
+          <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">2 · Jeden soubor je příliš velký — 100 MB / soubor</div>
+          <div style="margin-top:10px;padding:13px 15px;border:1px solid #e8cfcb;border-radius:8px;background:#fdf7f6">
+            <div style="font:500 13.5px/1.4 'IBM Plex Sans',sans-serif;color:#8f2d1f">Soubor je větší než povolených 100 MB.</div>
+            <div style="margin-top:7px;font:400 12.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Odeslání se nezdařilo a problém se neuložil. Formulář i ostatní přílohy zůstávají vyplněné — odeberte soubor a uložte znovu.</div>
+            <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;padding:8px 11px;border:1px solid #e8cfcb;border-radius:6px;background:#fff">
+              <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">zaznam-cely.mp4</span>
+              <span style="display:flex;align-items:center;gap:12px">
+                <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#b03a2b">142 MB</span>
+                <button type="button" style="height:26px;padding:0 9px;border:1px solid #d9dde3;border-radius:5px;background:#fff;font:400 12px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer">Odebrat</button>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">3 · Příliš mnoho souborů — 20 / odeslání</div>
+          <div style="margin-top:10px;padding:13px 15px;border:1px solid #e8cfcb;border-radius:8px;background:#fdf7f6">
+            <div style="font:500 13.5px/1.4 'IBM Plex Sans',sans-serif;color:#8f2d1f">Najednou lze nahrát nejvýš 20 souborů. Vybráno 24.</div>
+            <div style="margin-top:7px;font:400 12.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Odeslání se nezdařilo a problém se neuložil. Odeberte 4 přílohy, nebo je vložte do druhého problému.</div>
+          </div>
+        </div>
+        <div>
+          <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">4 · Celé odeslání je příliš velké — 512 MB</div>
+          <div style="margin-top:10px;padding:13px 15px;border:1px solid #e8cfcb;border-radius:8px;background:#fdf7f6">
+            <div style="font:500 13.5px/1.4 'IBM Plex Sans',sans-serif;color:#8f2d1f">Přílohy dohromady mají 601 MB, povoleno je 512 MB.</div>
+            <div style="margin-top:7px;font:400 12.5px/1.6 'IBM Plex Sans',sans-serif;color:#5b6370">Žádný soubor sám limit 100 MB nepřekročil — nevejde se jejich součet. Odeslání se nezdařilo a problém se neuložil; odeberte některé záznamy a uložte znovu.</div>
+            <div style="margin-top:10px;display:flex;align-items:center;gap:10px">
+              <span style="flex:1;height:6px;border-radius:3px;background:#f0e2df;display:block;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;bottom:0;width:100%;background:#c0392b;display:block"></span></span>
+              <span style="font:400 12px/1 'IBM Plex Mono',monospace;color:#b03a2b">601 / 512 MB</span>
+            </div>
+          </div>
+        </div>
+        <div style="height:1px;background:#eef0f2"></div>
+        <div>
+          <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">5 · Chyba přihlášení</div>
+          <div style="margin-top:10px;max-width:420px;padding:11px 13px;border:1px solid #e8cfcb;border-radius:8px;background:#fdf7f6;font:400 13px/1.4 'IBM Plex Sans',sans-serif;color:#8f2d1f">Nesprávné jméno nebo heslo.</div>
+        </div>
+        <div>
+          <div style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#a2a9b4">6 · Neexistující adresa — 404</div>
+          <div style="margin-top:10px;border:1px solid #e2e5ea;border-radius:8px;overflow:hidden">
+            <dc-import name="AppHeader" user="" active="problemy" hint-size="100%,57px"></dc-import>
+            <div style="padding:56px 32px;text-align:center">
+              <div style="font:600 17px/1.4 'IBM Plex Sans',sans-serif;color:#15181c">Záznam nebyl nalezen.</div>
+              <div style="margin-top:7px;font:400 13px/1.5 'IBM Plex Sans',sans-serif;color:#8a919c">Adresa <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px">/porada/2026-w12</span> neexistuje nebo byla porada smazána.</div>
+              <a href="#A6" style="display:inline-block;margin-top:14px;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#2f5bd0">Přejít na seznam porad</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="B6" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#fff;background:#5b6370;padding:5px 7px;border-radius:4px">B6</span>
+        <span style="font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c">Program během přetahování</span>
+        <span style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:#8a919c">poznámky se sbalí na jeden řádek, čísla se přepočítají</span>
+      </div>
+      <div style="width:1440px;height:1024px;background:#fff;border:1px solid #d7dbe1;border-radius:3px;box-shadow:0 1px 3px rgba(21,24,28,.06);overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="AppHeader" user="Petr Admin" active="porady" hint-size="100%,57px"></dc-import>
+        <div style="flex:1;min-height:0;padding:24px 32px;overflow:hidden">
+          <div style="max-width:1040px">
+            <h1 style="margin:0;font:600 23px/1.3 'IBM Plex Sans',sans-serif">Porada — týden 38 (2026)</h1>
+            <div style="margin-top:8px;font:400 13px/1 'IBM Plex Sans',sans-serif;color:#8a919c">18. 9. 2026 · 6 bodů · vytvořil Petr Admin</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:16px;padding:9px 13px;border:1px solid #c9d6f5;border-radius:7px;background:#f2f5fd">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2549ae" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M8 9l4-4 4 4M8 15l4 4 4-4"></path></svg>
+              <span style="font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#2549ae">Přetahování — poznámky jsou sbalené, aby byl vidět celý program. Pusťte bod na požadované místo.</span>
+            </div>
+            <div style="margin-top:14px;display:flex;flex-direction:column">
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #f0f2f4">
+                <svg width="12" height="18" viewBox="0 0 12 18" fill="#c3c9d2"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg>
+                <span style="font:500 16px/1.3 'IBM Plex Mono',monospace;color:#8a919c">1.</span>
+                <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Chybné číslování verzí po sloučení velkého konfliktu</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:5px 0">
+                <span style="width:9px;height:9px;border-radius:50%;background:#2f5bd0;display:block"></span>
+                <span style="flex:1;height:2px;background:#2f5bd0;display:block"></span>
+                <span style="font:500 11px/1 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#2549ae">Pustit na pozici 2</span>
+              </div>
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:center;padding:13px 16px 13px 0;margin:2px 0;border:1px solid #c9d6f5;border-radius:8px;background:#fff;box-shadow:0 12px 28px rgba(21,24,28,.18);transform:rotate(-.25deg)">
+                <span style="display:flex;justify-content:center;padding-left:8px"><svg width="12" height="18" viewBox="0 0 12 18" fill="#2f5bd0"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span>
+                <span style="font:500 16px/1.3 'IBM Plex Mono',monospace;color:#2549ae">2.</span>
+                <span style="display:flex;align-items:center;gap:10px;min-width:0">
+                  <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Export protokolu konfliktů chybí ve starších verzích</span>
+                  <span style="flex:none;padding:3px 7px;border-radius:4px;background:#f1f3f5;font:500 11px/1.4 'IBM Plex Mono',monospace;color:#5b6370">z pozice 6</span>
+                </span>
+              </div>
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #f0f2f4">
+                <svg width="12" height="18" viewBox="0 0 12 18" fill="#c3c9d2"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg>
+                <span style="font:500 16px/1.3 'IBM Plex Mono',monospace;color:#8a919c">3.</span>
+                <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Tlačítko „Vyřešit vše“ nejde zrušit</span>
+              </div>
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #f0f2f4">
+                <svg width="12" height="18" viewBox="0 0 12 18" fill="#c3c9d2"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg>
+                <span style="font:500 16px/1.3 'IBM Plex Mono',monospace;color:#8a919c">4.</span>
+                <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Konflikt se neuloží při současné editaci dvou uživatelů</span>
+              </div>
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #f0f2f4">
+                <svg width="12" height="18" viewBox="0 0 12 18" fill="#c3c9d2"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg>
+                <span style="font:500 16px/1.3 'IBM Plex Mono',monospace;color:#8a919c">5.</span>
+                <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Import nad 5 000 řádků spadne na timeout</span>
+              </div>
+              <div style="display:grid;grid-template-columns:22px 30px minmax(0,1fr);gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #f0f2f4">
+                <svg width="12" height="18" viewBox="0 0 12 18" fill="#c3c9d2"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg>
+                <span style="font:500 16px/1.3 'IBM Plex Mono',monospace;color:#8a919c">6.</span>
+                <span style="font:500 15px/1.4 'IBM Plex Sans',sans-serif;color:#15181c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Uživatel nevidí, kdo konflikt vyřešil</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+const PROBLEMS = [
+  { id: 1, title: "Konflikt se neuloží při současné editaci dvou uživatelů", author: "Jan Novák", age: "před 2 dny", files: 2, meetings: 0, done: false },
+  { id: 2, title: "Chybné číslování verzí po sloučení velkého konfliktu", author: "Eva Dvořáková", age: "před 4 dny", files: 1, meetings: 3, done: false },
+  { id: 3, title: "Import nad 5 000 řádků spadne na timeout", author: "Jan Novák", age: "před týdnem", files: 0, meetings: 2, done: false },
+  { id: 4, title: "Uživatel nevidí, kdo konflikt vyřešil", author: "Petr Admin", age: "před 9 dny", files: 3, meetings: 1, done: false },
+  { id: 5, title: "Náhled rozdílů nezobrazuje diakritiku správně", author: "Eva Dvořáková", age: "před 11 dny", files: 1, meetings: 0, done: false },
+  { id: 6, title: "Tlačítko „Vyřešit vše“ nejde zrušit", author: "Jan Novák", age: "před 2 týdny", files: 0, meetings: 4, done: false },
+  { id: 7, title: "Export protokolu konfliktů chybí ve starších verzích", author: "Eva Dvořáková", age: "před 3 týdny", files: 2, meetings: 1, done: false },
+  { id: 8, title: "Duplicitní záznamy po opakovaném importu", author: "Petr Admin", age: "před měsícem", files: 1, meetings: 2, done: true },
+];
+
+const AGENDA = [
+  {
+    n: 1, pid: 2, title: "Chybné číslování verzí po sloučení velkého konfliktu",
+    desc: "Po sloučení konfliktu nad 2 000 řádky se verze přečíslují už ve chvíli, kdy si uživatel jen otevře náhled sloučení. Když sloučení nepotvrdí, čísla verzí zůstanou přeskočená a v protokolu chybí.",
+    link: "jira.interni/browse/KONF-1391",
+    prep: "Návrh: číslovat verze až po potvrzení sloučení. Chce to rozhodnutí, ne diskuzi.",
+    action: "Dohodnuto — verze se přečíslují až po potvrzení. Jan implementuje do pátku.",
+    att: [{ kind: "img", name: "cislovani-verzi.png", size: "240 kB" }],
+  },
+  {
+    n: 2, pid: 6, title: "Tlačítko „Vyřešit vše“ nejde zrušit",
+    desc: "Po kliknutí na „Vyřešit vše“ se akce spustí okamžitě a nejde ji přerušit ani vrátit. U velkých konfliktů běží několik minut.",
+    link: "", prep: "Vrací se potřetí. Buď to tento týden zavřeme, nebo to chce vlastníka.",
+    action: "", att: [],
+  },
+  {
+    n: 3, pid: 1, title: "Konflikt se neuloží při současné editaci dvou uživatelů",
+    desc: "Když dva uživatelé otevřou stejný konflikt a oba uloží, druhé uložení projde bez chyby, ale změna se neuloží.",
+    link: "jira.interni/browse/KONF-1482",
+    prep: "Reprodukovatelné jen na testu 2, potřebujeme od analytiků potvrdit očekávané chování.",
+    action: "",
+    att: [{ kind: "img", name: "dve-editace.png", size: "310 kB" }, { kind: "video", name: "reprodukce.mp4", size: "24,3 MB" }],
+  },
+  {
+    n: 4, pid: 3, title: "Import nad 5 000 řádků spadne na timeout",
+    desc: "Import se po 60 sekundách ukončí chybou a rozpracovaný dávkový soubor zůstane ve frontě.",
+    link: "", prep: "Zvedneme timeout, nebo dávkovat po 1 000 řádcích? Potřebujeme čísla z produkce.",
+    action: "Odloženo na příští týden, chybí data z produkce.", att: [],
+  },
+  {
+    n: 5, pid: 4, title: "Uživatel nevidí, kdo konflikt vyřešil",
+    desc: "V detailu vyřešeného konfliktu chybí jméno a čas. Analytici se pak ptají e-mailem.",
+    link: "", prep: "Do detailu konfliktu přidat kdo a kdy. Malá věc, jen potvrdit rozsah.",
+    action: "", att: [{ kind: "img", name: "detail-konfliktu.png", size: "190 kB" }],
+  },
+  {
+    n: 6, pid: 7, title: "Export protokolu konfliktů chybí ve starších verzích",
+    desc: "Na instalacích verze 4.2 a nižší se v protokolu nezobrazí tlačítko exportu. Zákazník to reklamoval dvakrát.",
+    link: "", prep: "Zjistit, od které verze export chybí. Bez toho nemá cenu to plánovat.",
+    action: "", att: [{ kind: "file", name: "protokol-konfliktu.log", size: "180 kB" }, { kind: "img", name: "chybejici-export.png", size: "120 kB" }],
+  },
+];
+
+const MEETINGS = [
+  { date: "25. 9. 2026", week: "Týden 39", items: 4, future: true, archived: false },
+  { date: "18. 9. 2026", week: "Týden 38", items: 6, future: false, archived: false, current: true },
+  { date: "11. 9. 2026", week: "Týden 37", items: 9, future: false, archived: false },
+  { date: "4. 9. 2026", week: "Týden 36", items: 7, future: false, archived: false },
+  { date: "12. 9. 2025", week: "Týden 37", items: 5, future: false, archived: true },
+];
+
+const bodyPlural = (n) => (n === 1 ? "bod" : n >= 2 && n <= 4 ? "body" : "bodů");
+
+const fold = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+class Component extends DCLogic {
+  state = { filter: "nevyřešené", q: "", sort: "nejnovější", doneMap: {}, archive: false, picked: {} };
+
+  isDone(p) {
+    const o = this.state.doneMap[p.id];
+    return o === undefined ? p.done : o;
+  }
+
+  row(p, extra) {
+    const done = extra && extra.forceDone !== undefined ? extra.forceDone : this.isDone(p);
+    return {
+      id: p.id, title: p.title, author: p.author, age: p.age, files: p.files,
+      hasFiles: p.files > 0, noFiles: p.files === 0,
+      done, notDone: !done,
+      badgeText: p.meetings + "×",
+      badgeZero: p.meetings === 0,
+      badgeLow: p.meetings > 0 && p.meetings < 3,
+      badgeHigh: p.meetings >= 3,
+      toggle: () => this.setState((s) => ({ doneMap: Object.assign({}, s.doneMap, { [p.id]: !done }) })),
+    };
+  }
+
+  renderVals() {
+    const { filter, q, sort } = this.state;
+    let rows = PROBLEMS.filter((p) => {
+      const d = this.isDone(p);
+      if (filter === "nevyřešené") return !d;
+      if (filter === "vyřešené") return d;
+      return true;
+    });
+    if (q.trim()) {
+      const needle = fold(q.trim());
+      rows = rows.filter((p) => fold(p.title).includes(needle));
+    }
+    if (sort === "nejstarší") rows = rows.slice().reverse();
+    if (sort === "nejčastěji na poradě") rows = rows.slice().sort((a, b) => b.meetings - a.meetings);
+
+    const n = rows.length;
+    const plural = n === 1 ? "problém" : n >= 2 && n <= 4 ? "problémy" : "problémů";
+    const label = filter === "nevyřešené" ? "nevyřešených " : filter === "vyřešené" ? "vyřešených " : "";
+    const countLabel = filter === "nevyřešené" && n !== 1
+      ? n + " nevyřešených " + plural
+      : n + " " + (label ? label + plural : plural);
+
+    return {
+      bucketRows: rows.map((p) => this.row(p)),
+      bucketCountLabel: countLabel,
+      bucketEmptySearch: n === 0 && !!q.trim(),
+      bucketEmptyList: n === 0 && !q.trim(),
+      q,
+      sort,
+      fA: filter === "nevyřešené", nfA: filter !== "nevyřešené",
+      fB: filter === "vyřešené", nfB: filter !== "vyřešené",
+      fC: filter === "vše", nfC: filter !== "vše",
+      setFilterA: () => this.setState({ filter: "nevyřešené" }),
+      setFilterB: () => this.setState({ filter: "vyřešené" }),
+      setFilterC: () => this.setState({ filter: "vše" }),
+      setQ: (e) => this.setState({ q: e.target.value }),
+      clearQ: () => this.setState({ q: "" }),
+      setSort: (e) => this.setState({ sort: e.target.value }),
+      anonRows: PROBLEMS.filter((p) => !p.done).map((p) => this.row(p, { forceDone: false })),
+      meetingRows: MEETINGS.filter((m) => this.state.archive || !m.archived).map((m) => ({
+        date: m.date, week: m.week,
+        itemsLabel: m.items + " " + bodyPlural(m.items),
+        future: !!m.future, archived: !!m.archived, plain: !m.future && !m.archived,
+      })),
+      archiveOn: this.state.archive,
+      archiveOff: !this.state.archive,
+      toggleArchive: () => this.setState((s) => ({ archive: !s.archive })),
+      agendaItems: AGENDA.map((it) => {
+        const done = this.state.doneMap[it.pid] === true;
+        return {
+          n: it.n, num: it.n + ".", title: it.title, desc: it.desc,
+          link: it.link, hasLink: !!it.link,
+          prep: it.prep, action: it.action, hasAction: !!it.action, noAction: !it.action,
+          att: it.att.map((a) => ({
+            name: a.name, size: a.size,
+            isImg: a.kind === "img", isVideo: a.kind === "video", isFile: a.kind === "file",
+          })),
+          hasAtt: it.att.length > 0,
+          done, notDone: !done,
+          toggle: () => this.setState((s) => ({ doneMap: Object.assign({}, s.doneMap, { [it.pid]: !done }) })),
+        };
+      }),
+      pickerRows: PROBLEMS.filter((p) => !p.done).map((p) => {
+        const onAgenda = AGENDA.some((a) => a.pid === p.id);
+        const picked = !!this.state.picked[p.id];
+        return {
+          title: p.title, author: p.author, age: p.age,
+          badgeText: p.meetings + "×",
+          badgeZero: p.meetings === 0,
+          badgeLow: p.meetings > 0 && p.meetings < 3,
+          badgeHigh: p.meetings >= 3,
+          onAgenda, selectable: !onAgenda,
+          picked: picked && !onAgenda, unpicked: !picked && !onAgenda,
+          toggle: () => { if (onAgenda) return; this.setState((s) => ({ picked: Object.assign({}, s.picked, { [p.id]: !picked }) })); },
+        };
+      }),
+      pickLabel: (() => {
+        const n = Object.keys(this.state.picked).filter((k) => this.state.picked[k]).length;
+        if (n === 0) return "Přidat na program";
+        return "Přidat " + n + " " + (n === 1 ? "problém" : n <= 4 ? "problémy" : "problémů") + " na program";
+      })(),
+      pickNone: Object.keys(this.state.picked).filter((k) => this.state.picked[k]).length === 0,
+      pickSome: Object.keys(this.state.picked).filter((k) => this.state.picked[k]).length > 0,
+      vseRows: [PROBLEMS[4], PROBLEMS[5], PROBLEMS[7], PROBLEMS[6]].map((p) => this.row(p, { forceDone: p.done })),
+    };
+  }
+}
+</script>
+</body>
+</html>

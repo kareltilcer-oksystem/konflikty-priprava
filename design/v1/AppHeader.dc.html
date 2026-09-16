@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="height:56px;flex:none;display:flex;align-items:center;gap:28px;padding:0 32px;border-bottom:1px solid #e2e5ea;background:#fff;font-family:'IBM Plex Sans',system-ui,sans-serif">
+  <a href="#" style="font:600 15px/1 'IBM Plex Sans',sans-serif;color:#15181c;letter-spacing:-.01em;text-decoration:none;white-space:nowrap">Velké konflikty — příprava</a>
+  <nav style="display:flex;align-items:center;gap:4px;height:100%">
+    <sc-if value="{{ isProblems }}" hint-placeholder-val="{{ true }}">
+      <a href="#" style="display:flex;align-items:center;height:100%;padding:0 10px;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;text-decoration:none;box-shadow:inset 0 -2px 0 #2f5bd0">Problémy</a>
+    </sc-if>
+    <sc-if value="{{ notProblems }}">
+      <a href="#" style="display:flex;align-items:center;height:100%;padding:0 10px;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370;text-decoration:none">Problémy</a>
+    </sc-if>
+    <sc-if value="{{ isPorady }}">
+      <a href="#" style="display:flex;align-items:center;height:100%;padding:0 10px;font:500 13.5px/1 'IBM Plex Sans',sans-serif;color:#15181c;text-decoration:none;box-shadow:inset 0 -2px 0 #2f5bd0">Porady</a>
+    </sc-if>
+    <sc-if value="{{ notPorady }}">
+      <a href="#" style="display:flex;align-items:center;height:100%;padding:0 10px;font:400 13.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370;text-decoration:none">Porady</a>
+    </sc-if>
+  </nav>
+  <div style="flex:1"></div>
+  <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c">{{ userName }}</span>
+      <button type="button" style="height:28px;padding:0 10px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:400 12.5px/1 'IBM Plex Sans',sans-serif;color:#5b6370;cursor:pointer" style-hover="background:#f7f8f9;color:#15181c">Odhlásit</button>
+    </div>
+  </sc-if>
+  <sc-if value="{{ anonymous }}">
+    <button type="button" style="height:30px;padding:0 12px;border:1px solid #d9dde3;border-radius:6px;background:#fff;font:500 13px/1 'IBM Plex Sans',sans-serif;color:#15181c;cursor:pointer" style-hover="background:#f7f8f9">Přihlásit se</button>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:57},&quot;user&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Petr Admin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;problemy&quot;,&quot;porady&quot;],&quot;default&quot;:&quot;problemy&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const user = this.props.user || "";
+    const active = this.props.active || "problemy";
+    return {
+      userName: user,
+      signedIn: !!user,
+      anonymous: !user,
+      isProblems: active === "problemy",
+      notProblems: active !== "problemy",
+      isPorady: active === "porady",
+      notPorady: active !== "porady",
+    };
+  }
+}
+</script>
+</body>
+</html>
