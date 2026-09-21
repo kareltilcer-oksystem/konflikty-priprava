@@ -10,7 +10,7 @@ if (-not (Test-Path $envFile)) {
     $envFile = Join-Path $root '.env.example'
 }
 
-Get-Content $envFile | ForEach-Object {
+Get-Content $envFile -Encoding UTF8 | ForEach-Object {
     $line = $_.Trim()
     # Only '#' starts a comment. ';' must never be treated as one: it separates
     # the accounts inside AUTH_USERS.
