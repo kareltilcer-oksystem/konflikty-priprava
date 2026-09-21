@@ -18,6 +18,12 @@ const MAX_TITLE = 200
 
 type Staged = { id: string; file: File }
 
+// The staged id only has to be unique inside this list (React key, removal).
+// A counter does that everywhere; crypto.randomUUID() is missing outside a
+// secure context, so over plain HTTP it would throw on the first attachment.
+let stagedSeq = 0
+const stagedId = (file: File) => `${file.name}-${file.size}-${++stagedSeq}`
+
 /**
  * The problem form (A4), used for both create and edit.
  *
@@ -87,7 +93,7 @@ export function ProblemFormDrawer({
     setCapError(null)
     setFiles((prev) => [
       ...prev,
-      ...incoming.map((file) => ({ id: `${file.name}-${file.size}-${crypto.randomUUID()}`, file })),
+      ...incoming.map((file) => ({ id: stagedId(file), file })),
     ])
   }
 
