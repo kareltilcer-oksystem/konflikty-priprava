@@ -1,11 +1,11 @@
 import { useEffect, useId, useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCreateProblem, useUpdateProblem } from '../../api/hooks'
+import { useCreateProblem, useMe, useUpdateProblem, useUsers } from '../../api/hooks'
 import { ApiError } from '../../api/client'
 import type { ProblemDetail } from '../../api/types'
 import { cs } from '../../i18n/cs'
 import { formatSize } from '../../lib/format'
-import { Drawer, ErrorBox, FieldError, btn, cx, input, label, textarea } from '../../components/ui'
+import { Drawer, ErrorBox, FieldError, btn, cx, input, label, select, textarea } from '../../components/ui'
 import { FileIcon, ImageIcon, VideoIcon, CloseIcon } from '../../components/Icons'
 
 // The three caps, mirrored from the server so the form can explain a rejection
@@ -31,6 +31,10 @@ const stagedId = (file: File) => `${file.name}-${file.size}-${++stagedSeq}`
  * a cancelled or rejected submit leaves nothing behind (FR-P1). There is no
  * "save first, then attach" step — screenshots arrive by Ctrl+V and must not
  * require the problem to exist.
+ *
+ * The admin gets one extra field on create: the author. Problems are often
+ * reported by someone who will never open the app, and the Autor column is only
+ * worth a column if it names that person rather than whoever typed it in.
  */
 export function ProblemFormDrawer({
   open,
@@ -46,9 +50,17 @@ export function ProblemFormDrawer({
   const update = useUpdateProblem(existing?.id ?? 0)
   const mutation = existing ? update : create
 
+  const { data: me } = useMe()
+  const { data: users } = useUsers()
+  // Only on create, and only for the admin. An edit deliberately leaves the
+  // author alone: created_by is a record of who raised the problem, and the
+  // server has no endpoint for rewriting it.
+  const canPickAuthor = Boolean(!existing && me?.role === 'admin' && users && users.length > 1)
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [link, setLink] = useState('')
+  const [author, setAuthor] = useState('')
   const [files, setFiles] = useState<Staged[]>([])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [capError, setCapError] = useState<{ title: string; hint: string } | null>(null)
@@ -58,18 +70,26 @@ export function ProblemFormDrawer({
   const ids = useId()
 
   // Reset when the drawer opens, so a cancelled edit never leaks into the next.
+  //
+  // Keyed on `existing?.id`, never on `existing` itself: that object is
+  // react-query's, and every refetch that actually changes the problem hands
+  // back a new identity. Depending on it would wipe a half-filled form on a
+  // window refocus or on any mutation's invalidation — pasted screenshots
+  // included, which cannot be pasted a second time.
   useEffect(() => {
     if (!open) return
     setTitle(existing?.title ?? '')
     setDescription(existing?.description ?? '')
     setLink(existing?.link ?? '')
+    setAuthor(me?.username ?? '')
     setFiles([])
     setFieldErrors({})
     setCapError(null)
     mutation.reset()
     // `mutation` is recreated on every render; depending on it would loop.
+    // `existing` is read for its fields but deliberately not depended on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, existing])
+  }, [open, existing?.id, me?.username])
 
   // Ctrl+V anywhere in the drawer attaches the clipboard image. This is the
   // dominant way screenshots arrive, so it is bound to the panel rather than to
@@ -102,26 +122,31 @@ export function ProblemFormDrawer({
     setFiles((prev) => prev.filter((f) => f.id !== id))
   }
 
-  /** Checks the three caps. Each fails for a different reason, so each says so. */
+  /**
+   * Checks the three caps. Each fails for a different reason, so each says so.
+   *
+   * Every hint carries `notSaved` as well: the remedy differs per cap, the
+   * reassurance that the form survived the rejection does not.
+   */
   function checkCaps(): { title: string; hint: string } | null {
     const oversized = files.find((f) => f.file.size > MAX_FILE_BYTES)
     if (oversized) {
       return {
         title: cs.errors.fileTooLarge(oversized.file.name, formatSize(oversized.file.size)),
-        hint: cs.errors.fileTooLargeHint,
+        hint: `${cs.errors.notSaved} ${cs.errors.fileTooLargeHint}`,
       }
     }
     if (files.length > MAX_FILES) {
       return {
         title: cs.errors.tooManyFiles(files.length, MAX_FILES),
-        hint: cs.errors.tooManyFilesHint(files.length - MAX_FILES),
+        hint: `${cs.errors.notSaved} ${cs.errors.tooManyFilesHint(files.length - MAX_FILES)}`,
       }
     }
     const total = files.reduce((sum, f) => sum + f.file.size, 0)
     if (total > MAX_REQUEST_BYTES) {
       return {
         title: cs.errors.requestTooLarge(formatSize(total), formatSize(MAX_REQUEST_BYTES)),
-        hint: cs.errors.requestTooLargeHint,
+        hint: `${cs.errors.notSaved} ${cs.errors.requestTooLargeHint}`,
       }
     }
     return null
@@ -147,9 +172,18 @@ export function ProblemFormDrawer({
     body.set('title', trimmedTitle)
     body.set('description', description)
     body.set('link', trimmedLink)
+    // Sent only when it is actually someone else: the server treats an absent
+    // created_by as "the session", which is what every other caller wants.
+    if (canPickAuthor && author && author !== me?.username) body.set('created_by', author)
     for (const f of files) body.append('file', f.file)
 
     mutation.mutate(body as never, {
+      // The server answers a refused field with details keyed by field name
+      // (title, link, created_by), so the message lands at the control that
+      // caused it rather than only in the banner at the foot of the form.
+      onError: (err) => {
+        if (err instanceof ApiError && Object.keys(err.details).length > 0) setFieldErrors(err.details)
+      },
       onSuccess: (created) => {
         onClose()
         // A newly created problem opens straight away; an edit stays put.
@@ -159,6 +193,14 @@ export function ProblemFormDrawer({
   }
 
   const serverError = mutation.error instanceof ApiError ? mutation.error : null
+  // The server repeats a field rejection in both `message` and `details[field]`,
+  // so a message already printed under its own control must not be printed a
+  // second time at the foot of the form. A rejection the form has no field for
+  // still belongs in the banner rather than vanishing.
+  const inlineFields = canPickAuthor ? ['title', 'link', 'created_by'] : ['title', 'link']
+  const detailKeys = serverError ? Object.keys(serverError.details) : []
+  const shownInline =
+    detailKeys.length > 0 && detailKeys.every((key) => inlineFields.includes(key))
   const totalBytes = files.reduce((sum, f) => sum + f.file.size, 0)
 
   return (
@@ -231,6 +273,38 @@ export function ProblemFormDrawer({
           {fieldErrors.link && <FieldError>{fieldErrors.link}</FieldError>}
         </div>
 
+        {/* Author — admin only, on create */}
+        {canPickAuthor && (
+          <div className="flex flex-col gap-[6px]">
+            <label className={label} htmlFor={`${ids}-author`}>
+              {cs.form.author}
+            </label>
+            {/*
+              The fallback keeps the value on an option that exists. `author` is
+              empty only until the reset effect seeds it, and an empty value
+              matches no option — the browser would show whichever account
+              AUTH_USERS lists first while the submit filed the problem under
+              the session, so the name on screen and the name recorded could
+              disagree with nothing to show it.
+            */}
+            <select
+              id={`${ids}-author`}
+              className={cx(select, fieldErrors.created_by && 'border-danger-strong bg-danger-bg')}
+              value={author || me?.username || ''}
+              onChange={(e) => setAuthor(e.target.value)}
+              aria-invalid={Boolean(fieldErrors.created_by)}
+            >
+              {users?.map((u) => (
+                <option key={u.username} value={u.username}>
+                  {u.username === me?.username ? cs.form.authorSelf(u.display_name) : u.display_name}
+                </option>
+              ))}
+            </select>
+            {fieldErrors.created_by && <FieldError>{fieldErrors.created_by}</FieldError>}
+            <span className="text-[11.5px] leading-none text-faint">{cs.form.authorHint}</span>
+          </div>
+        )}
+
         {/* Attachments */}
         <div className="flex flex-col gap-[9px]">
           <label className={label}>{cs.form.attachments}</label>
@@ -293,7 +367,22 @@ export function ProblemFormDrawer({
         </div>
 
         {capError && <ErrorBox title={capError.title} hint={capError.hint} />}
-        {serverError && <ErrorBox title={serverError.message} hint={cs.errors.fileTooLargeHint} />}
+        {/*
+          `notSaved` is true whichever way the submit was refused, so it shows
+          for every failure and not just an over-cap upload: either as the hint
+          under the server's message, or — when that message is already printed
+          at its own field — on its own, as the only thing left to say. The
+          per-cap remedies stay in checkCaps, where the cap that fired is known;
+          all three size rejections come back as one 413 carrying one code, so a
+          remedy chosen from the status here would tell two of the three to
+          remove the wrong thing.
+        */}
+        {serverError && (
+          <ErrorBox
+            title={shownInline ? cs.errors.notSaved : serverError.message}
+            hint={shownInline ? undefined : cs.errors.notSaved}
+          />
+        )}
       </div>
     </Drawer>
   )

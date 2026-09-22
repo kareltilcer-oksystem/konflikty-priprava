@@ -81,6 +81,9 @@ export const cs = {
     description: 'Popis',
     descriptionHint: 'Zlomy řádků se zachovají.',
     link: 'Odkaz',
+    author: 'Autor',
+    authorHint: 'Problém se uloží pod jménem vybraného autora.',
+    authorSelf: (name: string) => `${name} (já)`,
     attachments: 'Přílohy',
     dropzone: 'Vložte snímek obrazovky (Ctrl+V) nebo přetáhněte soubory',
     dropzoneHint: 'Jakýkoli typ souboru · max 100 MB na soubor · 20 souborů · 512 MB celkem',
@@ -193,12 +196,15 @@ export const cs = {
     notFoundProblem: (id: string) => `Problém s číslem ${id} neexistuje nebo byl smazán.`,
     toMeetings: 'Přejít na seznam porad',
     toProblems: 'Přejít na seznam problémů',
+    // True of every rejected submit, whatever refused it, so it is kept apart
+    // from the remedies below: the reassurance that nothing was lost is worth
+    // as much to a refused author as to an oversized file.
+    notSaved: 'Problém se neuložil. Formulář i vložené přílohy zůstávají vyplněné.',
     // Checked in the browser before the submit is sent; the server enforces the
     // same three caps and its message wins if one ever slips through.
     fileTooLarge: (name: string, size: string) =>
       `Soubor ${name} má ${size} a je větší než povolených 100 MB.`,
-    fileTooLargeHint:
-      'Odeslání se nezdařilo a problém se neuložil. Formulář i ostatní přílohy zůstávají vyplněné — odeberte soubor a uložte znovu.',
+    fileTooLargeHint: 'Odeberte soubor a uložte znovu.',
     tooManyFiles: (n: number, max: number) =>
       `Najednou lze nahrát nejvýš ${max} souborů. Vybráno ${n}.`,
     tooManyFilesHint: (over: number) =>

@@ -5,7 +5,16 @@ import type { DoneFilter, Problem, SortKey, User } from '../../api/types'
 import { bucketCount, cs } from '../../i18n/cs'
 import { relativeAge } from '../../lib/format'
 import { PaperclipIcon, PlusIcon, SearchIcon } from '../../components/Icons'
-import { DoneBadge, MeetingBadge, EmptyState, Spinner, btn, columnHeader, cx } from '../../components/ui'
+import {
+  DoneBadge,
+  MeetingBadge,
+  EmptyState,
+  Spinner,
+  btn,
+  columnHeader,
+  cx,
+  selectCompact,
+} from '../../components/ui'
 import { ProblemFormDrawer } from './ProblemForm'
 
 /** The bucket (A1–A3): the landing screen and the busiest one. */
@@ -269,11 +278,7 @@ export function SortSelect({
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value as SortKey)}
-      className="h-[33px] cursor-pointer appearance-none rounded-[6px] border border-field bg-white bg-[length:12px] bg-[right_9px_center] bg-no-repeat pl-[10px] pr-[30px] text-[13px] text-ink outline-none focus-ring"
-      style={{
-        backgroundImage:
-          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6370' stroke-width='2.4'><path d='m6 9 6 6 6-6'/></svg>\")",
-      }}
+      className={selectCompact}
     >
       <option value="created_desc">{cs.bucket.sorts.created_desc}</option>
       <option value="created_asc">{cs.bucket.sorts.created_asc}</option>
