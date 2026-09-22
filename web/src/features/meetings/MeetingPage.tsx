@@ -171,9 +171,14 @@ function ProjectedItem({ item, number, first }: { item: MeetingItem; number: num
 
         {link && (
           <>
-            <div className="mt-3 font-mono text-[16px] leading-none text-primary print:hidden">
+            <a
+              href={link}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-3 inline-block font-mono text-[16px] leading-none text-primary no-underline hover:underline print:hidden"
+            >
               {displayLink(link)}
-            </div>
+            </a>
             {/* In print a link is readable text, not a blue underline. */}
             <div className="print-only mt-[5px] text-[10pt] text-black">
               {cs.agenda.printLink} {displayLink(link)}
