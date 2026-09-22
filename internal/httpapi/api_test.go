@@ -416,6 +416,134 @@ func TestProblemValidation(t *testing.T) {
 	}
 }
 
+// The admin files a problem under someone else's name; nobody else can.
+//
+// Problems are routinely reported by people who never sign in, so the admin
+// enters them — but the Autor column has to name the reporter, not the typist.
+func TestCreateProblemOnBehalfOfAnotherUser(t *testing.T) {
+	h := newHarness(t)
+	admin, editor := h.admin(), h.editor()
+
+	t.Run("admin names another user", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Nahlásila Eva","created_by":"eva"}`, admin)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, rec).CreatedBy; got != "eva" {
+			t.Errorf("created_by = %q, want eva", got)
+		}
+	})
+
+	t.Run("omitted created_by stays the session", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Vlastní"}`, admin)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, rec).CreatedBy; got != "admin" {
+			t.Errorf("created_by = %q, want admin", got)
+		}
+	})
+
+	// A blank value counts as omitting the field, which the contract promises so
+	// that a client always serializing the property still gets the session. The
+	// editor is the caller here on purpose: if this ever stopped being treated
+	// as "omitted" it would fall through to the admin gate and 403 every such
+	// submit, which is the regression these two pin.
+	t.Run("an empty created_by is the session, not a refusal", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Prázdné","created_by":""}`, editor)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, rec).CreatedBy; got != "jan" {
+			t.Errorf("created_by = %q, want jan", got)
+		}
+	})
+
+	t.Run("a blank-once-trimmed created_by is the session too", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Mezery","created_by":"   "}`, editor)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, rec).CreatedBy; got != "jan" {
+			t.Errorf("created_by = %q, want jan", got)
+		}
+	})
+
+	// Attachments carry the author too: they are part of the same report, and a
+	// mismatch would make the detail page name two different people for one
+	// submission.
+	t.Run("multipart carries the author onto the attachments", func(t *testing.T) {
+		rec := h.postMultipart("/api/problems", admin,
+			map[string]string{"title": "Se snímkem", "created_by": "eva"},
+			map[string][]byte{"snimek.png": []byte("PNG")}, "image/png")
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		got := decode[problemDetailDTO](t, rec)
+		if got.CreatedBy != "eva" {
+			t.Errorf("created_by = %q, want eva", got.CreatedBy)
+		}
+		if len(got.Attachments) != 1 || got.Attachments[0].CreatedBy != "eva" {
+			t.Errorf("attachment author = %+v", got.Attachments)
+		}
+	})
+
+	// Naming themselves is not "on behalf of anyone" and needs no role.
+	t.Run("editor may name themselves", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Sám za sebe","created_by":"jan"}`, editor)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, rec).CreatedBy; got != "jan" {
+			t.Errorf("created_by = %q, want jan", got)
+		}
+	})
+
+	// Refused, not silently filed under the editor: a dropped author would be
+	// invisible until someone noticed the wrong name in the column.
+	t.Run("editor may not name anyone else", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Za Evu","created_by":"eva"}`, editor)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("= %d, want 403: %s", rec.Code, rec.Body.String())
+		}
+		if code := errorCode(t, rec); code != CodeForbidden {
+			t.Errorf("code = %q", code)
+		}
+	})
+
+	t.Run("the author must be a configured account", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"Za ducha","created_by":"nikdo"}`, admin)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("= %d, want 400: %s", rec.Code, rec.Body.String())
+		}
+		body := decode[apiError](t, rec)
+		if body.Error.Code != CodeValidationFailed {
+			t.Errorf("code = %q", body.Error.Code)
+		}
+		if _, ok := body.Error.Details["created_by"]; !ok {
+			t.Errorf("details %v do not mention created_by", body.Error.Details)
+		}
+	})
+
+	// A refused author is refused before the bytes are committed, like every
+	// other rejection on this endpoint.
+	t.Run("a refused author leaves no files behind", func(t *testing.T) {
+		before := h.countDir(h.cfg.AttachDir)
+		rec := h.postMultipart("/api/problems", editor,
+			map[string]string{"title": "Za Evu", "created_by": "eva"},
+			map[string][]byte{"snimek.png": []byte("PNG")}, "image/png")
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("= %d, want 403: %s", rec.Code, rec.Body.String())
+		}
+		if got := h.countDir(h.cfg.AttachDir); got != before {
+			t.Errorf("attachments directory grew from %d to %d", before, got)
+		}
+		if h.countDir(h.cfg.TmpDir) != 0 {
+			t.Errorf("staging was left dirty")
+		}
+	})
+}
+
 // link = "" clears the link; an omitted link leaves it alone.
 func TestPatchDistinguishesEmptyFromOmitted(t *testing.T) {
 	h := newHarness(t)

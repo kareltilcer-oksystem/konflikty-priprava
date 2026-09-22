@@ -98,12 +98,6 @@ export interface ProblemQuery {
   sort?: SortKey
 }
 
-export interface ProblemInput {
-  title: string
-  description?: string
-  link?: string
-}
-
 export interface ProblemPatch {
   title?: string
   description?: string

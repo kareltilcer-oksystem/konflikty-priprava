@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kareltilcer-oksystem/konflikty-priprava/internal/auth"
 	"github.com/kareltilcer-oksystem/konflikty-priprava/internal/search"
 	"github.com/kareltilcer-oksystem/konflikty-priprava/internal/store"
 	"github.com/kareltilcer-oksystem/konflikty-priprava/internal/uploads"
@@ -103,6 +104,7 @@ type problemCreateRequest struct {
 	Title       string  `json:"title"`
 	Description *string `json:"description"`
 	Link        *string `json:"link"`
+	CreatedBy   *string `json:"created_by"`
 }
 
 type problemUpdateRequest struct {
@@ -117,10 +119,20 @@ func (a *API) createProblem(w http.ResponseWriter, r *http.Request) {
 	account, _ := accountFrom(r.Context())
 
 	var (
-		input   store.ProblemInput
-		staged  *uploads.Result
-		details map[string]string
+		input     store.ProblemInput
+		staged    *uploads.Result
+		requested string
+		committed bool
 	)
+
+	// Rolled back unless the whole request succeeds, so a rejected submit
+	// leaves no orphan bytes on disk. Rollback is nil-safe, so the JSON shape —
+	// which stages nothing — can share the one deferred call.
+	defer func() {
+		if !committed {
+			staged.Rollback()
+		}
+	}()
 
 	if isJSONRequest(r) {
 		var req problemCreateRequest
@@ -135,6 +147,9 @@ func (a *API) createProblem(w http.ResponseWriter, r *http.Request) {
 		if req.Link != nil {
 			input.Link = strings.TrimSpace(*req.Link)
 		}
+		if req.CreatedBy != nil {
+			requested = *req.CreatedBy
+		}
 	} else {
 		var err error
 		staged, err = a.readUpload(w, r)
@@ -142,48 +157,70 @@ func (a *API) createProblem(w http.ResponseWriter, r *http.Request) {
 			writeUploadError(w, err)
 			return
 		}
-		// Rolled back unless the whole request succeeds, so a rejected submit
-		// leaves no orphan bytes on disk.
-		committed := false
-		defer func() {
-			if !committed {
-				staged.Rollback()
-			}
-		}()
 		input.Title = strings.TrimSpace(staged.Field("title"))
 		input.Description = staged.Field("description")
 		input.Link = strings.TrimSpace(staged.Field("link"))
+		requested = staged.Field("created_by")
+	}
 
-		if msg, field, bad := validateProblem(input.Title, input.Link); bad {
-			details = map[string]string{field: msg}
-			writeErrorDetails(w, http.StatusBadRequest, CodeValidationFailed, msg, details)
-			return
-		}
+	// One tail for both shapes: they differ only in how the fields arrive, so
+	// what a create accepts cannot drift between them.
+	if msg, field, bad := validateProblem(input.Title, input.Link); bad {
+		writeErrorDetails(w, http.StatusBadRequest, CodeValidationFailed, msg, map[string]string{field: msg})
+		return
+	}
+	author, ok := a.resolveAuthor(w, account, requested)
+	if !ok {
+		return
+	}
+	var attachments []store.NewAttachment
+	if staged != nil {
+		// After every rejection above, so a refused request never moves bytes
+		// into the attachments directory.
 		if err := staged.Commit(a.cfg.AttachDir); err != nil {
 			slog.Error("commit uploads", "err", err)
 			writeError(w, http.StatusInternalServerError, CodeInternal, msgInternal)
 			return
 		}
-		id, err := a.store.CreateProblem(r.Context(), input, stagedAttachments(staged), account.Username, a.now())
-		if err != nil {
-			writeStoreError(w, err)
-			return
-		}
-		committed = true
-		a.writeCreatedProblem(w, r, id)
-		return
+		attachments = stagedAttachments(staged)
 	}
-
-	if msg, field, bad := validateProblem(input.Title, input.Link); bad {
-		writeErrorDetails(w, http.StatusBadRequest, CodeValidationFailed, msg, map[string]string{field: msg})
-		return
-	}
-	id, err := a.store.CreateProblem(r.Context(), input, nil, account.Username, a.now())
+	id, err := a.store.CreateProblem(r.Context(), input, attachments, author, a.now())
 	if err != nil {
 		writeStoreError(w, err)
 		return
 	}
+	committed = true
 	a.writeCreatedProblem(w, r, id)
+}
+
+// resolveAuthor decides whose name goes on a new problem, and answers the
+// request itself when the choice is not allowed.
+//
+// created_by is normally absent and the author is simply the session. The admin
+// may name someone else: problems are routinely reported in a corridor or in
+// the meeting itself by people who never sign in, and filing those under the
+// admin's name would lose the one thing the Autor column is for. Anyone else
+// asking for another name is refused rather than quietly ignored — a silently
+// dropped author is worse than an error.
+//
+// The name must be a configured account. Accepting free text here would put
+// unresolvable strings in created_by, which every screen maps back to a display
+// name.
+func (a *API) resolveAuthor(w http.ResponseWriter, account auth.Account, requested string) (string, bool) {
+	requested = strings.TrimSpace(requested)
+	if requested == "" || requested == account.Username {
+		return account.Username, true
+	}
+	if !account.IsAdmin() {
+		writeError(w, http.StatusForbidden, CodeForbidden, msgAuthorForbidden)
+		return "", false
+	}
+	if _, ok := a.users.Lookup(requested); !ok {
+		writeErrorDetails(w, http.StatusBadRequest, CodeValidationFailed, msgUnknownAuthor,
+			map[string]string{"created_by": msgUnknownAuthor})
+		return "", false
+	}
+	return requested, true
 }
 
 func (a *API) writeCreatedProblem(w http.ResponseWriter, r *http.Request, id int64) {

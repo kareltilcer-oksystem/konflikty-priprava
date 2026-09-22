@@ -154,6 +154,21 @@
   }
 }
 
+/* The dropdown chevron.
+   `appearance-none` is what lets a <select> match the text fields, and it takes
+   the native arrow with it — so the two belong in one utility rather than in a
+   class plus an inline style a call site can forget. Size and position stay in
+   the utility classes, because the two dropdowns are not the same size.
+
+   The stroke repeats --color-secondary above. A background-image SVG is its own
+   document, so neither `currentColor` nor `var()` reaches inside it; keeping the
+   copy here, beside the token it mirrors, is as close as CSS gets. */
+@utility select-chevron {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235b6370' stroke-width='2.4'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+}
+
 @utility focus-ring {
   &:focus-visible {
     border-color: var(--color-primary);

@@ -58,6 +58,27 @@ export const input =
 export const textarea =
   'w-full rounded-[6px] border border-field bg-white px-[11px] py-[9px] text-[13.5px] leading-[1.6] text-ink outline-none transition-colors resize-none focus-ring'
 
+/**
+ * What every dropdown shares. Deliberately sets no size, padding, type scale or
+ * background position: the two dropdowns differ on exactly those, and a base
+ * that declared them would be overridden by whichever copy of the property the
+ * generated stylesheet happened to emit last, not by the order written at the
+ * call site.
+ *
+ * `select-chevron` (src/styles/index.css) carries both `appearance-none` — what
+ * makes the control match the text fields — and the arrow that stripping the
+ * native appearance takes away. They travel as one class so a `<select>` can
+ * never be styled into having no dropdown affordance at all.
+ */
+const selectBase =
+  'select-chevron cursor-pointer rounded-[6px] border border-field bg-white bg-[length:12px] text-ink outline-none transition-colors focus-ring'
+
+/** A full-width form select matching `input`'s height. */
+export const select = cx(selectBase, 'h-[36px] w-full bg-[right_10px_center] pl-[11px] pr-[32px] text-[14px]')
+
+/** The shorter, auto-width select used in toolbars beside the filter buttons. */
+export const selectCompact = cx(selectBase, 'h-[33px] bg-[right_9px_center] pl-[10px] pr-[30px] text-[13px]')
+
 export const label = 'text-[12.5px] font-medium leading-none text-ink'
 
 export const columnHeader =

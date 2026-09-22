@@ -31,6 +31,8 @@ const (
 	msgTitleRequired       = "Vyplňte název problému."
 	msgTitleTooLong        = "Název může mít nejvýše 200 znaků."
 	msgLinkScheme          = "Odkaz musí začínat http:// nebo https://."
+	msgAuthorForbidden     = "Vložit problém za jiného uživatele může pouze správce."
+	msgUnknownAuthor       = "Vybraný autor neexistuje."
 	msgInvalidCredentials  = "Nesprávné jméno nebo heslo."
 	msgUnauthorized        = "Pro tuto akci se musíte přihlásit."
 	msgForbidden           = "Tuto akci může provést pouze správce."

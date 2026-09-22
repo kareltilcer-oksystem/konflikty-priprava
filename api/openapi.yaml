@@ -186,8 +186,16 @@ paths:
       tags: [problems]
       summary: Create a problem
       description: |
-        Any authenticated user. `created_by` is taken from the session and cannot be supplied
-        by the client.
+        Any authenticated user. `created_by` defaults to the session and is the only way a
+        non-admin can file a problem.
+
+        The **admin** may set `created_by` to another configured username, so a problem
+        raised in the corridor or in the meeting itself by someone who never signs in is
+        still filed under the person who reported it. A non-empty value must name an account
+        from `AUTH_USERS`; anything else is a `400`. The empty string — and any value blank
+        once trimmed — counts as omitting the field, so a client that always serializes the
+        property still gets the session as the author. A non-admin naming anyone but
+        themselves gets a `403` rather than having the field silently ignored.
 
         Two request shapes are accepted. `application/json` creates a problem with no
         attachments. `multipart/form-data` creates the problem **and** its attachments in one
@@ -228,6 +236,7 @@ paths:
               schema: { $ref: '#/components/schemas/ProblemDetail' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '413': { $ref: '#/components/responses/PayloadTooLarge' }
 
   /problems/{problemId}:
@@ -901,6 +910,13 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, default: '' }
+        created_by:
+          type: string
+          description: |
+            Username the problem is filed under. Omit it, send the empty string, or send
+            the session's own username — and the author is the caller. Only the admin may
+            name someone else, and only an account configured in `AUTH_USERS`. Surrounding
+            whitespace is trimmed before the value is matched.
         link:
           type: string
           default: ''
