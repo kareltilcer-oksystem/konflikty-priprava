@@ -144,6 +144,15 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgb(47 91 208 / 0.12);
   }
+  /* Tailwind v4's preflight gives buttons the default arrow. Everything
+     clickable here is a <button> (links and selects already show the hand), so
+     one rule covers the lot. A disabled button keeps the arrow, and a call site
+     that wants another cursor (`cursor-grab`, `cursor-not-allowed`) still wins,
+     because utilities sit above this layer. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
   input::placeholder,
   textarea::placeholder {
     color: var(--color-faint);
