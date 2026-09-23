@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useCreateProblem, useMe, useUpdateProblem, useUsers } from '../../api/hooks'
 import { ApiError } from '../../api/client'
 import { LABELS, type Label, type ProblemDetail } from '../../api/types'
@@ -45,7 +44,6 @@ export function ProblemFormDrawer({
   onClose: () => void
   existing?: ProblemDetail
 }) {
-  const navigate = useNavigate()
   const create = useCreateProblem()
   const update = useUpdateProblem(existing?.id ?? 0)
   const mutation = existing ? update : create
@@ -200,11 +198,10 @@ export function ProblemFormDrawer({
       onError: (err) => {
         if (err instanceof ApiError && Object.keys(err.details).length > 0) setFieldErrors(err.details)
       },
-      onSuccess: (created) => {
-        onClose()
-        // A newly created problem opens straight away; an edit stays put.
-        if (!existing && created) navigate(`/problem/${(created as ProblemDetail).id}`)
-      },
+      // Both create and edit stay put. A new problem shows up in the bucket
+      // behind the drawer: the mutation invalidates the list, so filing several
+      // in a row never means navigating back after each one.
+      onSuccess: () => onClose(),
     })
   }
 
