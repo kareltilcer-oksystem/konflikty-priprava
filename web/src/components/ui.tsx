@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { CloseIcon } from './Icons'
 import { cs } from '../i18n/cs'
+import type { Label } from '../api/types'
 
 /** Joins class names, dropping anything falsy. */
 export function cx(...parts: Array<string | false | null | undefined>): string {
@@ -259,6 +260,42 @@ export function EmptyState({ title, hint, action }: { title: string; hint?: stri
 
 export function Spinner({ children = cs.common.loading }: { children?: string }) {
   return <div className="py-16 text-center text-[13.5px] text-muted">{children}</div>
+}
+
+/**
+ * A problem's labels, as chips beside its title.
+ *
+ * Deliberately colourless. Colour does exactly three jobs in this design — the
+ * primary action, the done state and the deferral badge — and spending two more
+ * hues on a classification that is already two short words would drain the
+ * meaning out of the badges that do carry urgency.
+ *
+ * Outlined and in the label's own case, where the status pills beside it
+ * (`Vyřešeno`, `Na poradě`) are filled and uppercase, so a classification never
+ * reads as a status.
+ *
+ * Returns a fragment rather than a wrapper, so every caller can drop it into
+ * the flex row it already has beside the title, next to `DoneBadge`.
+ */
+export function LabelChips({ labels, size = 'sm' }: { labels: Label[]; size?: 'sm' | 'lg' }) {
+  return (
+    <>
+      {labels.map((name) => (
+        <span
+          key={name}
+          className={cx(
+            'flex-none rounded-[4px] border border-line bg-transparent font-medium',
+            'leading-none text-secondary',
+            size === 'lg' ? 'px-[10px] py-[5px] text-[14px]' : 'px-[7px] py-[3px] text-[10.5px]',
+            // A tint does not survive an office printer; the border does.
+            'print:border-[#999] print:bg-transparent print:px-[5px] print:py-[2px] print:text-[8.5pt] print:text-black',
+          )}
+        >
+          {cs.labels[name]}
+        </span>
+      ))}
+    </>
+  )
 }
 
 /** The green `Vyřešeno` badge. */

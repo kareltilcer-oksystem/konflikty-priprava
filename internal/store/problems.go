@@ -5,17 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
-// problemColumns selects a problem together with its two derived counts. Both
-// counts are correlated subqueries rather than joins, which keeps the row count
-// honest when a problem has several attachments and several meetings at once.
+// problemColumns selects a problem together with its three derived values: the
+// attachment count, the meeting count and its labels. All three are correlated
+// subqueries rather than joins, which keeps the row count honest when a problem
+// has several attachments and several meetings at once.
 const problemColumns = `
   p.id, p.title, p.description, p.link, p.created_at, p.created_by, p.updated_at,
   p.done, p.done_at, p.done_by,
   (SELECT COUNT(*) FROM attachments   a WHERE a.problem_id = p.id) AS attachment_count,
-  (SELECT COUNT(*) FROM meeting_items m WHERE m.problem_id = p.id) AS meeting_count`
+  (SELECT COUNT(*) FROM meeting_items m WHERE m.problem_id = p.id) AS meeting_count,
+  (SELECT group_concat(l.label) FROM problem_labels l WHERE l.problem_id = p.id) AS labels`
 
 type scanner interface {
 	Scan(dest ...any) error
@@ -23,14 +26,30 @@ type scanner interface {
 
 func scanProblem(sc scanner) (Problem, error) {
 	var p Problem
-	var doneAt, doneBy sql.NullString
+	var doneAt, doneBy, labels sql.NullString
 	err := sc.Scan(&p.ID, &p.Title, &p.Description, &p.Link, &p.CreatedAt, &p.CreatedBy,
-		&p.UpdatedAt, &p.Done, &doneAt, &doneBy, &p.AttachmentCount, &p.MeetingCount)
+		&p.UpdatedAt, &p.Done, &doneAt, &doneBy, &p.AttachmentCount, &p.MeetingCount, &labels)
 	if err != nil {
 		return Problem{}, err
 	}
 	p.DoneAt, p.DoneBy = nullString(doneAt), nullString(doneBy)
+	p.Labels = splitLabels(labels)
 	return p, nil
+}
+
+// splitLabels turns the group_concat of a problem's labels into a slice in
+// canonical order.
+//
+// group_concat returns NULL for a problem with no labels and promises no order
+// for one with several, so both are settled here rather than at each call site.
+// A row naming something outside the vocabulary is dropped rather than failing
+// the read: only the API writes this table, and a stray value is not worth
+// making an agenda unopenable.
+func splitLabels(ns sql.NullString) []string {
+	if !ns.Valid || ns.String == "" {
+		return nil
+	}
+	return canonicalLabels(strings.Split(ns.String, ","))
 }
 
 // ListProblems returns the bucket. The text filter q is applied by the caller
@@ -114,6 +133,9 @@ func (s *Store) CreateProblem(ctx context.Context, in ProblemInput, atts []NewAt
 		if id, err = res.LastInsertId(); err != nil {
 			return fmt.Errorf("read new problem id: %w", err)
 		}
+		if err := insertLabels(ctx, tx, id, in.Labels); err != nil {
+			return err
+		}
 		return insertAttachments(ctx, tx, id, atts, by, ts)
 	})
 	if err != nil {
@@ -152,6 +174,11 @@ func (s *Store) UpdateProblem(ctx context.Context, id int64, patch ProblemPatch,
 		args = append(args, id)
 		if _, err := tx.ExecContext(ctx, `UPDATE problems SET `+set+` WHERE id = ?`, args...); err != nil {
 			return fmt.Errorf("update problem %d: %w", id, err)
+		}
+		if patch.Labels != nil {
+			if err := setLabels(ctx, tx, id, *patch.Labels); err != nil {
+				return err
+			}
 		}
 		return insertAttachments(ctx, tx, id, atts, by, ts)
 	})
@@ -234,6 +261,36 @@ func (s *Store) DeleteProblem(ctx context.Context, id int64) ([]string, error) {
 		return nil, err
 	}
 	return storageNames, nil
+}
+
+// setLabels replaces a problem's label set. With at most two labels per problem
+// a clear-and-reinsert is both cheaper and shorter than diffing the two sets.
+func setLabels(ctx context.Context, tx *sql.Tx, problemID int64, labels []string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM problem_labels WHERE problem_id = ?`, problemID); err != nil {
+		return fmt.Errorf("clear labels of problem %d: %w", problemID, err)
+	}
+	return insertLabels(ctx, tx, problemID, labels)
+}
+
+// insertLabels adds labels to a problem that has none — the create path, where
+// clearing first would only be work.
+//
+// It normalises the set itself rather than trusting the caller: a duplicate
+// would otherwise break the primary key, and an unknown value would be written
+// only to be hidden on every read.
+func insertLabels(ctx context.Context, tx *sql.Tx, problemID int64, labels []string) error {
+	canonical, ok := NormalizeLabels(labels)
+	if !ok {
+		return fmt.Errorf("labels %q on problem %d are outside the vocabulary", labels, problemID)
+	}
+	for _, label := range canonical {
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO problem_labels (problem_id, label) VALUES (?, ?)`, problemID, label)
+		if err != nil {
+			return fmt.Errorf("insert label %q on problem %d: %w", label, problemID, err)
+		}
+	}
+	return nil
 }
 
 func insertAttachments(ctx context.Context, tx *sql.Tx, problemID int64, atts []NewAttachment, by, ts string) error {

@@ -24,6 +24,13 @@ export const cs = {
     cancel: 'Zrušit',
   },
 
+  // The Czech names of the server's two labels (wire values `ux` / `analysis`).
+  // They are a closed vocabulary on purpose — see the API's Label schema.
+  labels: {
+    ux: 'UX',
+    analysis: 'Analýza',
+  },
+
   bucket: {
     title: 'Problémy',
     add: 'Přidat problém',
@@ -81,6 +88,8 @@ export const cs = {
     description: 'Popis',
     descriptionHint: 'Zlomy řádků se zachovají.',
     link: 'Odkaz',
+    labels: 'Štítky',
+    labelsHint: 'Nepovinné. Lze vybrat oba, nebo žádný.',
     author: 'Autor',
     authorHint: 'Problém se uloží pod jménem vybraného autora.',
     authorSelf: (name: string) => `${name} (já)`,

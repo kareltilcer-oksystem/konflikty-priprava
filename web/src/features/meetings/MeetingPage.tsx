@@ -38,7 +38,7 @@ import { displayLink, formatDate, formatSize, meetingTitle, safeLink } from '../
 import { attachmentKind } from '../../lib/format'
 import { AttachmentStrip } from '../../components/Attachments'
 import { ChevronLeftIcon, CheckIcon, CloseIcon, DragHandleIcon, PlusIcon, SortArrowsIcon } from '../../components/Icons'
-import { DoneBadge, EmptyState, Spinner, btn, cx, microLabel } from '../../components/ui'
+import { DoneBadge, EmptyState, LabelChips, Spinner, btn, cx, microLabel } from '../../components/ui'
 import { NotFound } from '../../components/NotFoundPage'
 import { AddProblemsPicker } from './AddProblemsPicker'
 import { DeleteMeetingDialog } from './DeleteMeetingDialog'
@@ -160,6 +160,7 @@ function ProjectedItem({ item, number, first }: { item: MeetingItem; number: num
           >
             {p.title}
           </div>
+          <LabelChips labels={p.labels} size="lg" />
           {p.done && <DoneBadge />}
         </div>
 
@@ -627,6 +628,7 @@ function SortableAgendaItem({
               >
                 {p.title}
               </Link>
+              <LabelChips labels={p.labels} />
               {p.done && <DoneBadge />}
             </div>
 

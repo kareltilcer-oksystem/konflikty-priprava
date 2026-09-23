@@ -101,16 +101,19 @@ func (a *API) problemDetail(r *http.Request, id int64) (problemDetailDTO, error)
 }
 
 type problemCreateRequest struct {
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	Link        *string `json:"link"`
-	CreatedBy   *string `json:"created_by"`
+	Title       string   `json:"title"`
+	Description *string  `json:"description"`
+	Link        *string  `json:"link"`
+	Labels      []string `json:"labels"`
+	CreatedBy   *string  `json:"created_by"`
 }
 
 type problemUpdateRequest struct {
 	Title       *string `json:"title"`
 	Description *string `json:"description"`
 	Link        *string `json:"link"`
+	// A pointer, so an omitted set leaves the labels alone while [] clears them.
+	Labels *[]string `json:"labels"`
 }
 
 // createProblem accepts both shapes: JSON for a problem with no files, and
@@ -147,6 +150,11 @@ func (a *API) createProblem(w http.ResponseWriter, r *http.Request) {
 		if req.Link != nil {
 			input.Link = strings.TrimSpace(*req.Link)
 		}
+		labels, ok := normalizeLabels(w, req.Labels)
+		if !ok {
+			return
+		}
+		input.Labels = labels
 		if req.CreatedBy != nil {
 			requested = *req.CreatedBy
 		}
@@ -160,6 +168,11 @@ func (a *API) createProblem(w http.ResponseWriter, r *http.Request) {
 		input.Title = strings.TrimSpace(staged.Field("title"))
 		input.Description = staged.Field("description")
 		input.Link = strings.TrimSpace(staged.Field("link"))
+		labels, ok := normalizeLabels(w, splitLabelField(staged.Field("labels")))
+		if !ok {
+			return
+		}
+		input.Labels = labels
 		requested = staged.Field("created_by")
 	}
 
@@ -223,6 +236,36 @@ func (a *API) resolveAuthor(w http.ResponseWriter, account auth.Account, request
 	return requested, true
 }
 
+// normalizeLabels validates a requested label set and answers the request
+// itself when it names something outside the vocabulary.
+//
+// An unknown label is refused rather than dropped, for the same reason an
+// unknown author is: a tag the submitter can see they ticked and the record
+// does not carry is worse than being told why.
+func normalizeLabels(w http.ResponseWriter, requested []string) ([]string, bool) {
+	labels, ok := store.NormalizeLabels(requested)
+	if !ok {
+		writeErrorDetails(w, http.StatusBadRequest, CodeValidationFailed, msgUnknownLabel,
+			map[string]string{"labels": msgUnknownLabel})
+		return nil, false
+	}
+	return labels, true
+}
+
+// splitLabelField reads the multipart form's `labels` part: one comma-separated
+// value rather than a part per label, because Result.Fields is a map and
+// uploads.Read refuses a repeated part rather than keep only the last. A present
+// but empty field is an empty set — which is how an edit clears the last label.
+//
+// Nothing is trimmed or skipped, so `ux,` carries an empty value and is refused
+// exactly as `["ux",""]` is in the JSON shape.
+func splitLabelField(v string) []string {
+	if v == "" {
+		return []string{}
+	}
+	return strings.Split(v, ",")
+}
+
 func (a *API) writeCreatedProblem(w http.ResponseWriter, r *http.Request, id int64) {
 	detail, err := a.problemDetail(r, id)
 	if err != nil {
@@ -255,6 +298,13 @@ func (a *API) updateProblem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		patch = store.ProblemPatch{Title: req.Title, Description: req.Description, Link: req.Link}
+		if req.Labels != nil {
+			labels, ok := normalizeLabels(w, *req.Labels)
+			if !ok {
+				return
+			}
+			patch.Labels = &labels
+		}
 		if patch.Title != nil {
 			trimmed := strings.TrimSpace(*patch.Title)
 			patch.Title = &trimmed
@@ -301,6 +351,13 @@ func (a *API) updateProblem(w http.ResponseWriter, r *http.Request) {
 	if staged.Has("link") {
 		v := strings.TrimSpace(staged.Field("link"))
 		patch.Link = &v
+	}
+	if staged.Has("labels") {
+		labels, ok := normalizeLabels(w, splitLabelField(staged.Field("labels")))
+		if !ok {
+			return
+		}
+		patch.Labels = &labels
 	}
 	if msg, field, bad := validatePatch(patch); bad {
 		writeErrorDetails(w, http.StatusBadRequest, CodeValidationFailed, msg, map[string]string{field: msg})

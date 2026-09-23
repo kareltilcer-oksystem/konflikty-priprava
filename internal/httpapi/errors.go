@@ -33,6 +33,8 @@ const (
 	msgLinkScheme          = "Odkaz musí začínat http:// nebo https://."
 	msgAuthorForbidden     = "Vložit problém za jiného uživatele může pouze správce."
 	msgUnknownAuthor       = "Vybraný autor neexistuje."
+	msgUnknownLabel        = "Vybraný štítek neexistuje."
+	msgFieldRepeated       = "Každé pole formuláře lze odeslat jen jednou."
 	msgInvalidCredentials  = "Nesprávné jméno nebo heslo."
 	msgUnauthorized        = "Pro tuto akci se musíte přihlásit."
 	msgForbidden           = "Tuto akci může provést pouze správce."

@@ -197,6 +197,9 @@ paths:
         property still gets the session as the author. A non-admin naming anyone but
         themselves gets a `403` rather than having the field silently ignored.
 
+        `labels` is the closed `Label` vocabulary (see the schema): a problem is *UX*,
+        *Analýza*, both or neither. An unknown value is a `400` naming the field.
+
         Two request shapes are accepted. `application/json` creates a problem with no
         attachments. `multipart/form-data` creates the problem **and** its attachments in one
         atomic request — this is what the *Přidat problém* form sends, so screenshots pasted
@@ -223,6 +226,12 @@ paths:
                   properties:
                     file: { $ref: '#/components/schemas/UploadParts' }
             encoding:
+              # One part holding `ux,analysis`, not a part per label: the server
+              # reads the non-file parts into a map and refuses a repeated name
+              # with a `400` rather than keep only the last value.
+              labels:
+                style: form
+                explode: false
               file:
                 contentType: '*/*'
       responses:
@@ -257,8 +266,8 @@ paths:
       tags: [problems]
       summary: Update a problem
       description: |
-        Any authenticated user may edit the title, description and link — any user may edit
-        any problem, deleting is admin-only (PRD decision log, Q2). `done` is **not**
+        Any authenticated user may edit the title, description, labels and link — any user may
+        edit any problem, deleting is admin-only (PRD decision log, Q2). `done` is **not**
         settable here — use `POST`/`DELETE`
         `/problems/{problemId}/done`, which is admin-only.
 
@@ -283,6 +292,12 @@ paths:
                   properties:
                     file: { $ref: '#/components/schemas/UploadParts' }
             encoding:
+              # One part holding `ux,analysis`, not a part per label: the server
+              # reads the non-file parts into a map and refuses a repeated name
+              # with a `400` rather than keep only the last value.
+              labels:
+                style: form
+                explode: false
               file:
                 contentType: '*/*'
       responses:
@@ -837,9 +852,20 @@ components:
           enum: [admin, editor]
       description: An account from `AUTH_USERS`. There is no user table; records reference the `username`.
 
+    Label:
+      type: string
+      enum: [ux, analysis]
+      description: |
+        A problem's tag. The vocabulary is closed: a problem carries `ux`, `analysis`, both or
+        neither, and nothing else is accepted. The values are English like the rest of the API;
+        the Czech names they are shown under (*UX*, *Analýza*) belong to the frontend.
+
+        Stored as `(problem_id, label)` rows rather than a column per label, so a third tag
+        would be data rather than a migration. There is no label filter on `GET /problems` yet.
+
     Problem:
       type: object
-      required: [id, title, description, link, created_at, created_by, updated_at, done, attachment_count, meeting_count]
+      required: [id, title, description, link, labels, created_at, created_by, updated_at, done, attachment_count, meeting_count]
       properties:
         id: { type: integer, format: int64, example: 42 }
         title:
@@ -854,6 +880,15 @@ components:
           type: string
           description: Optional external URL (ticket, document, …). Empty string when not filled in.
           example: https://jira.local/browse/VK-123
+        labels:
+          type: array
+          description: |
+            Always present, possibly empty, never null. Returned in the vocabulary's own order
+            (`ux` before `analysis`) whatever order it was written in, so one set never renders
+            two ways.
+          items: { $ref: '#/components/schemas/Label' }
+          uniqueItems: true
+          example: [ux, analysis]
         created_at: { type: string, format: date-time }
         created_by: { type: string, description: Username of the author. }
         updated_at: { type: string, format: date-time }
@@ -910,6 +945,15 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, default: '' }
+        labels:
+          type: array
+          default: []
+          items: { $ref: '#/components/schemas/Label' }
+          description: |
+            Omit it or send `[]` for an unlabelled problem. Duplicates are collapsed and the
+            order is ignored, so `[analysis, ux]` and `[ux, ux, analysis]` store the same set.
+            A value outside the vocabulary is a `400` naming the `labels` field rather than a
+            label silently dropped.
         created_by:
           type: string
           description: |
@@ -932,6 +976,12 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string }
+        labels:
+          type: array
+          items: { $ref: '#/components/schemas/Label' }
+          description: |
+            Replaces the whole set: `[]` clears every label, omitting the property leaves the
+            labels untouched — the same "empty is not absent" rule as `link`.
         link:
           type: string
           pattern: '^(https?://.*)?$'

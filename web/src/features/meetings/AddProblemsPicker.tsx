@@ -5,7 +5,7 @@ import type { MeetingDetail, SortKey } from '../../api/types'
 import { cs } from '../../i18n/cs'
 import { meetingTitle, relativeAge } from '../../lib/format'
 import { CheckIcon, CloseIcon, SearchIcon } from '../../components/Icons'
-import { ErrorBox, MeetingBadge, Modal, btn, cx } from '../../components/ui'
+import { ErrorBox, LabelChips, MeetingBadge, Modal, btn, cx } from '../../components/ui'
 import { SortSelect } from '../problems/BucketPage'
 
 /**
@@ -146,6 +146,7 @@ export function AddProblemsPicker({
                 >
                   {p.title}
                 </span>
+                <LabelChips labels={p.labels} />
                 {already && (
                   <span className="flex-none rounded-[4px] border border-line bg-surface-hover px-[7px] py-[2px] text-[10.5px] font-medium uppercase leading-[1.4] tracking-[0.04em] text-muted">
                     {cs.picker.onAgenda}

@@ -2,11 +2,11 @@ import { useEffect, useId, useRef, useState, type ClipboardEvent, type DragEvent
 import { useNavigate } from 'react-router-dom'
 import { useCreateProblem, useMe, useUpdateProblem, useUsers } from '../../api/hooks'
 import { ApiError } from '../../api/client'
-import type { ProblemDetail } from '../../api/types'
+import { LABELS, type Label, type ProblemDetail } from '../../api/types'
 import { cs } from '../../i18n/cs'
 import { formatSize } from '../../lib/format'
 import { Drawer, ErrorBox, FieldError, btn, cx, input, label, select, textarea } from '../../components/ui'
-import { FileIcon, ImageIcon, VideoIcon, CloseIcon } from '../../components/Icons'
+import { FileIcon, ImageIcon, VideoIcon, CloseIcon, CheckIcon } from '../../components/Icons'
 
 // The three caps, mirrored from the server so the form can explain a rejection
 // before spending minutes uploading. The server enforces them too and its
@@ -60,6 +60,7 @@ export function ProblemFormDrawer({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [link, setLink] = useState('')
+  const [labels, setLabels] = useState<Label[]>([])
   const [author, setAuthor] = useState('')
   const [files, setFiles] = useState<Staged[]>([])
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -81,6 +82,7 @@ export function ProblemFormDrawer({
     setTitle(existing?.title ?? '')
     setDescription(existing?.description ?? '')
     setLink(existing?.link ?? '')
+    setLabels(existing?.labels ?? [])
     setAuthor(me?.username ?? '')
     setFiles([])
     setFieldErrors({})
@@ -120,6 +122,13 @@ export function ProblemFormDrawer({
   function removeFile(id: string) {
     setCapError(null)
     setFiles((prev) => prev.filter((f) => f.id !== id))
+  }
+
+  // Rebuilt from LABELS rather than appended to, so the set is always in the
+  // server's canonical order and ticking the same two labels in either order
+  // produces the same request.
+  function toggleLabel(name: Label) {
+    setLabels((prev) => LABELS.filter((l) => (l === name ? !prev.includes(l) : prev.includes(l))))
   }
 
   /**
@@ -172,6 +181,13 @@ export function ProblemFormDrawer({
     body.set('title', trimmedTitle)
     body.set('description', description)
     body.set('link', trimmedLink)
+    // On an edit, sent only when changed: the field replaces the whole set, so
+    // resending the one the drawer opened with would undo a label someone else
+    // changed meanwhile. When sent it is sent even empty — a present field is
+    // what tells the server to replace the set, so unticking the last label
+    // actually clears it. Both sides are in canonical order, so join compares.
+    const labelField = labels.join(',')
+    if (!existing || labelField !== existing.labels.join(',')) body.set('labels', labelField)
     // Sent only when it is actually someone else: the server treats an absent
     // created_by as "the session", which is what every other caller wants.
     if (canPickAuthor && author && author !== me?.username) body.set('created_by', author)
@@ -197,7 +213,9 @@ export function ProblemFormDrawer({
   // so a message already printed under its own control must not be printed a
   // second time at the foot of the form. A rejection the form has no field for
   // still belongs in the banner rather than vanishing.
-  const inlineFields = canPickAuthor ? ['title', 'link', 'created_by'] : ['title', 'link']
+  const inlineFields = canPickAuthor
+    ? ['title', 'link', 'labels', 'created_by']
+    : ['title', 'link', 'labels']
   const detailKeys = serverError ? Object.keys(serverError.details) : []
   const shownInline =
     detailKeys.length > 0 && detailKeys.every((key) => inlineFields.includes(key))
@@ -271,6 +289,52 @@ export function ProblemFormDrawer({
             aria-invalid={Boolean(fieldErrors.link)}
           />
           {fieldErrors.link && <FieldError>{fieldErrors.link}</FieldError>}
+        </div>
+
+        {/* Labels */}
+        <div className="flex flex-col gap-[6px]">
+          <span className={label} id={`${ids}-labels`}>
+            {cs.form.labels} <span className="font-normal text-faint">{cs.form.optional}</span>
+          </span>
+          {/*
+            Two independent toggles, not a segmented control: both labels at
+            once is an ordinary answer, and so is neither. `aria-checked` rather
+            than `aria-pressed` for the same reason — these are checkboxes that
+            happen to look like the chips they produce.
+          */}
+          <div role="group" aria-labelledby={`${ids}-labels`} className="flex gap-[7px]">
+            {LABELS.map((name) => {
+              const on = labels.includes(name)
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => toggleLabel(name)}
+                  className={cx(
+                    'inline-flex h-[30px] items-center gap-[7px] rounded-[6px] border px-[11px]',
+                    'text-[13px] leading-none transition-colors focus-ring',
+                    on
+                      ? 'border-primary-line bg-primary-tint font-medium text-primary-ink'
+                      : 'border-field bg-white text-secondary hover:bg-surface-hover hover:text-ink',
+                  )}
+                >
+                  <span
+                    className={cx(
+                      'flex h-[15px] w-[15px] flex-none items-center justify-center rounded-[4px]',
+                      on ? 'bg-primary text-white' : 'border-[1.5px] border-check bg-white',
+                    )}
+                  >
+                    {on && <CheckIcon size={10} />}
+                  </span>
+                  {cs.labels[name]}
+                </button>
+              )
+            })}
+          </div>
+          {fieldErrors.labels && <FieldError>{fieldErrors.labels}</FieldError>}
+          <span className="text-[11.5px] leading-none text-faint">{cs.form.labelsHint}</span>
         </div>
 
         {/* Author — admin only, on create */}

@@ -135,8 +135,9 @@ The landing screen and the busiest one: a list of problems that are **not done**
 The third sort option is not filler: it surfaces problems that keep getting deferred, which is
 exactly what the admin is hunting for while building an agenda. Give it room.
 
-**Each row shows:** title · author (`Jan Novák`) · age (`před 3 dny`) · attachment count ·
-a badge with how many past meetings the problem has already been on. A *done* problem
+**Each row shows:** title · its labels, as chips beside the title · author (`Jan Novák`) ·
+age (`před 3 dny`) · attachment count · a badge with how many past meetings the problem has
+already been on. A *done* problem
 (visible under *vyřešené* / *vše*) is struck through and marked **Vyřešeno**.
 
 Design notes:
@@ -160,7 +161,8 @@ Design notes:
 ### A4 · *Přidat problém* — the create form
 
 Fields: **Název** (required, max 200 characters) · **Popis** (optional, multi-line, plain
-text, line breaks preserved) · **Odkaz** (optional, single `http(s)` URL) · **Přílohy**.
+text, line breaks preserved) · **Odkaz** (optional, single `http(s)` URL) · **Štítky**
+(optional; two independent toggles, *UX* and *Analýza* — both, one or neither) · **Přílohy**.
 Modal or inline panel — designer's call.
 
 Three things this form must get right:
@@ -283,7 +285,8 @@ Two destructive actions, both admin-only, both confirmed:
 |---|---|---|
 | Header + nav + auth slot | everywhere | Two states: anonymous / signed in. |
 | Filter bar | A1, A10 | Text input + sort select in both. The segmented state filter is **A1 only** — the picker shows the bucket, and a done problem must not be addable to an agenda. |
-| Problem row | A1, A10 | Title, author, age, attachment count, meeting badge, done state. |
+| Problem row | A1, A10 | Title, labels, author, age, attachment count, meeting badge, done state. |
+| Label chip | A1, A5, A7, A8, A9, A10 | *UX* / *Analýza*, beside the title wherever a problem is shown. Colourless on purpose — colour here means the primary action, done, or deferral. |
 | Meeting-count badge | A1, A10 | The deferral signal. Needs a zero, a one, and a many state. Not on A5: the timeline there already tells that story in full. |
 | Done toggle | A1, A5, A7 | Admin-only control. Anywhere the problem is shown (PRD 6.2). |
 | Done marker | A1, A5, A7, A8 | *Vyřešeno* + strike-through. Also readable in print (A9). |
@@ -323,7 +326,8 @@ mock with, to be confirmed by the team before implementation. All user-visible t
 | Done marker | Vyřešeno | fixed |
 | Filter options | nevyřešené · vyřešené · vše | fixed |
 | Sort options | nejnovější · nejstarší · nejčastěji na poradě | fixed |
-| Field label | Název · Popis · Odkaz · Přílohy | proposal |
+| Field label | Název · Popis · Odkaz · Štítky · Přílohy | proposal |
+| Label names | UX · Analýza | fixed |
 | Field label | Poznámka k přípravě | proposal |
 | Field label | Akce / výsledek | proposal |
 | Field label | Poznámka k celé poradě | proposal |

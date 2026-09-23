@@ -39,6 +39,7 @@ var (
 	ErrTooManyFiles  = errors.New("too many files in one request")
 	ErrBodyTooLarge  = errors.New("the whole request exceeds the size limit")
 	ErrFieldTooLarge = errors.New("a text field is too large")
+	ErrFieldRepeated = errors.New("a text field was sent more than once")
 	ErrMalformed     = errors.New("malformed multipart body")
 )
 
@@ -170,6 +171,12 @@ func readField(res *Result, part *multipart.Part) error {
 	}
 	if int64(len(buf)) > maxFieldBytes {
 		return ErrFieldTooLarge
+	}
+	// Fields is a map, so a second part of the same name would silently replace
+	// the first — a label sent as one part per value would lose all but the last.
+	// Refused rather than guessed at.
+	if _, seen := res.Fields[part.FormName()]; seen {
+		return ErrFieldRepeated
 	}
 	res.Fields[part.FormName()] = string(buf)
 	return nil

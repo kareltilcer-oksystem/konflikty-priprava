@@ -10,7 +10,7 @@ import { AttachmentGrid } from '../../components/Attachments'
 import { DeleteProblemDialog } from './DeleteProblemDialog'
 import { ProblemFormDrawer } from './ProblemForm'
 import { NotFound } from '../../components/NotFoundPage'
-import { DoneBadge, Spinner, btn, cx, sectionLabel } from '../../components/ui'
+import { DoneBadge, LabelChips, Spinner, btn, cx, sectionLabel } from '../../components/ui'
 
 /** The problem detail (A5): every field, the gallery, and the meeting timeline. */
 export function ProblemDetailPage({ user }: { user: User | null }) {
@@ -49,7 +49,7 @@ export function ProblemDetailPage({ user }: { user: User | null }) {
 
         <div className="mt-3 flex items-start justify-between gap-8">
           <div className="min-w-0">
-            <div className="flex items-center gap-[10px]">
+            <div className="flex flex-wrap items-center gap-[10px]">
               <h1
                 className={cx(
                   'm-0 text-[23px] leading-[1.3] tracking-[-0.01em]',
@@ -58,6 +58,7 @@ export function ProblemDetailPage({ user }: { user: User | null }) {
               >
                 {problem.title}
               </h1>
+              <LabelChips labels={problem.labels} />
               {problem.done && <DoneBadge />}
             </div>
             <div className="mt-2 text-[13px] leading-none text-muted">
