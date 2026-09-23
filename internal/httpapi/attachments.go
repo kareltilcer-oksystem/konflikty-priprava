@@ -46,6 +46,8 @@ func writeUploadError(w http.ResponseWriter, err error) {
 			"Přílohy dohromady přesahují povolených 512 MB.")
 	case errors.Is(err, uploads.ErrFieldTooLarge):
 		writeError(w, http.StatusBadRequest, CodeValidationFailed, msgValidationFailed)
+	case errors.Is(err, uploads.ErrFieldRepeated):
+		writeError(w, http.StatusBadRequest, CodeValidationFailed, msgFieldRepeated)
 	case errors.Is(err, uploads.ErrNotMultipart):
 		writeError(w, http.StatusBadRequest, CodeValidationFailed, msgNotMultipart)
 	default:

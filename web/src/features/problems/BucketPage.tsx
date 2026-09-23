@@ -7,6 +7,7 @@ import { relativeAge } from '../../lib/format'
 import { PaperclipIcon, PlusIcon, SearchIcon } from '../../components/Icons'
 import {
   DoneBadge,
+  LabelChips,
   MeetingBadge,
   EmptyState,
   Spinner,
@@ -187,6 +188,7 @@ function ProblemRow({
         >
           {p.title}
         </Link>
+        <LabelChips labels={p.labels} />
         {p.done && <DoneBadge />}
       </div>
 

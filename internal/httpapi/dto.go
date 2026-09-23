@@ -23,18 +23,21 @@ func toUser(a auth.Account) userDTO {
 
 // problemDTO mirrors the Problem schema.
 type problemDTO struct {
-	ID              int64   `json:"id"`
-	Title           string  `json:"title"`
-	Description     string  `json:"description"`
-	Link            string  `json:"link"`
-	CreatedAt       string  `json:"created_at"`
-	CreatedBy       string  `json:"created_by"`
-	UpdatedAt       string  `json:"updated_at"`
-	Done            bool    `json:"done"`
-	DoneAt          *string `json:"done_at"`
-	DoneBy          *string `json:"done_by"`
-	AttachmentCount int     `json:"attachment_count"`
-	MeetingCount    int     `json:"meeting_count"`
+	ID          int64  `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Link        string `json:"link"`
+	// Canonical order, never null: an empty set is [] like every other
+	// collection on the wire.
+	Labels          []string `json:"labels"`
+	CreatedAt       string   `json:"created_at"`
+	CreatedBy       string   `json:"created_by"`
+	UpdatedAt       string   `json:"updated_at"`
+	Done            bool     `json:"done"`
+	DoneAt          *string  `json:"done_at"`
+	DoneBy          *string  `json:"done_by"`
+	AttachmentCount int      `json:"attachment_count"`
+	MeetingCount    int      `json:"meeting_count"`
 }
 
 // problemWithAttachmentsDTO mirrors ProblemWithAttachments: a problem plus its
@@ -102,8 +105,12 @@ type meetingItemDTO struct {
 }
 
 func toProblem(p store.Problem) problemDTO {
+	labels := p.Labels
+	if labels == nil {
+		labels = []string{}
+	}
 	return problemDTO{
-		ID: p.ID, Title: p.Title, Description: p.Description, Link: p.Link,
+		ID: p.ID, Title: p.Title, Description: p.Description, Link: p.Link, Labels: labels,
 		CreatedAt: p.CreatedAt, CreatedBy: p.CreatedBy, UpdatedAt: p.UpdatedAt,
 		Done: p.Done, DoneAt: p.DoneAt, DoneBy: p.DoneBy,
 		AttachmentCount: p.AttachmentCount, MeetingCount: p.MeetingCount,

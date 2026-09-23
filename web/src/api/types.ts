@@ -3,6 +3,15 @@
 
 export type Role = 'admin' | 'editor'
 
+/**
+ * A problem's tag. The vocabulary is closed and defined by the server; the
+ * Czech names it is shown under live in the string table (i18n/cs.ts).
+ */
+export type Label = 'ux' | 'analysis'
+
+/** The vocabulary in the order the server returns it and every screen shows it. */
+export const LABELS: Label[] = ['ux', 'analysis']
+
 export interface User {
   username: string
   display_name: string
@@ -26,6 +35,8 @@ export interface Problem {
   title: string
   description: string
   link: string
+  /** Canonical order, possibly empty — never null. */
+  labels: Label[]
   created_at: string
   created_by: string
   updated_at: string
@@ -102,4 +113,6 @@ export interface ProblemPatch {
   title?: string
   description?: string
   link?: string
+  /** Replaces the whole set; `[]` clears it, omitting it leaves it alone. */
+  labels?: Label[]
 }

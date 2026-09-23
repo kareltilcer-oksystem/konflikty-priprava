@@ -96,6 +96,7 @@ The unit of work. Lives in the **bucket** from creation until the admin marks it
 | `id` | int | system | |
 | `title` | string (1–200) | editor/admin | Required. |
 | `description` | text | editor/admin | Optional, free text, line breaks preserved. |
+| `labels` | set of `ux` / `analysis` | editor/admin | Optional. A problem is *UX*, *Analýza*, both or neither — a closed vocabulary of two, not free text (Q15, decided). |
 | `link` | string (URL) | editor/admin | Optional single external URL. **`http://` or `https://` only** — the empty string means "no link". Any other scheme (`javascript:`, `data:`, …) is rejected on write and refused by the renderer, because this value ends up as an `href` on a page every anonymous visitor can open. |
 | `created_at` | timestamp | system | |
 | `created_by` | string | system | Username of the author. |
@@ -253,11 +254,12 @@ on `meetings.slug` or handing a `-2` suffix to two meetings a year apart. The de
 ### 7.2 Problems (FR-P)
 
 - **FR-P1** — Any authenticated user can create a problem: title (required), description,
-  link, attachments. Attachments are sent **in the same request** as the rest of the form
+  labels, link, attachments. Attachments are sent **in the same request** as the rest of the form
   (`multipart/form-data` on `POST /problems`), so the problem and its files are created
   atomically: a cancelled or failed submit leaves no half-made problem in the bucket.
-- **FR-P2** — Any authenticated user can edit the title, description, link and attachments of
-  any problem, including another editor's; deleting is admin-only (Q2, decided).
+- **FR-P2** — Any authenticated user can edit the title, description, labels, link and
+  attachments of any problem, including another editor's; deleting is admin-only (Q2, decided).
+  Labels are replaced as a set: sending an empty one clears them, omitting them leaves them be.
 - **FR-P3** — Only the admin can delete a problem. The UI must warn which meetings the
   problem appears on; deleting it removes those agenda entries too, and every meeting that
   loses an entry has its remaining items renumbered to stay contiguous in the same
@@ -277,6 +279,10 @@ on `meetings.slug` or handing a `-2` suffix to two meetings a year apart. The de
 - **FR-P8** — The bucket view has a sort control: *nejnovější* (default), *nejstarší*, and
   *nejčastěji na poradě*. The last one surfaces problems that keep getting deferred, which is
   exactly what the admin needs when assembling an agenda.
+- **FR-P9** — Labels are shown as chips beside the problem's title everywhere it appears: the
+  bucket, the detail, the agenda picker and both agenda renderings, printed one included. They
+  carry no colour of their own — colour in this UI means the primary action, the done state or
+  the deferral badge, and spending two more hues on two short words would drain those.
 
 ### 7.3 Attachments (FR-T)
 
@@ -411,6 +417,16 @@ CREATE TABLE problems (
   done_at     TEXT,
   done_by     TEXT
 );
+
+CREATE TABLE problem_labels (
+  problem_id INTEGER NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+  label      TEXT    NOT NULL,             -- 'ux' | 'analysis', validated in Go
+  PRIMARY KEY (problem_id, label)
+);
+-- A row per label rather than two columns on `problems` or one comma-separated string: a third
+-- label is then data rather than a migration, and a label filter, should one be added, is a
+-- plain EXISTS (... AND label = ?) like `scheduled` over meeting_items. No CHECK constraint —
+-- the vocabulary lives in Go (store.Label), and a second copy here could only drift.
 
 CREATE TABLE meetings (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -553,6 +569,7 @@ All questions raised during drafting were resolved on 2026-09-16. Nothing is blo
 | **Q12** | Do anonymous visitors see author names? | **Yes** — everyone sees everything, names included. | FR-R1 |
 | **Q13** | Meeting fields of its own? | **Date + an optional general note** for the whole meeting, shown above the agenda. No title, no participants. | 5.2, FR-M1 |
 | **Q14** | Slug format? | **`2026-w38`**, with `-2` for a second meeting in the same week. | 6.3 |
+| **Q15** | Labels on a problem: free text or a fixed set? | **A fixed set of two** — *UX* and *Analýza*, any combination including none. Free text would hold "UX", "ux " and "uix" within a month: three tags for one thing and a filter that finds none of them. | 5.1, FR-P1, FR-P9 |
 
 ### Small calls made while applying the above
 

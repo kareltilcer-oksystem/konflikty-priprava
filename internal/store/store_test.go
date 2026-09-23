@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -610,5 +611,129 @@ func TestNotFoundErrors(t *testing.T) {
 	}
 	if _, err := s.DeleteProblem(ctx, 404); !errors.Is(err, ErrNotFound) {
 		t.Errorf("DeleteProblem = %v, want ErrNotFound", err)
+	}
+}
+
+// Labels are a set: stored in canonical order whatever order they arrive in,
+// replaced wholesale by a patch, and left alone by a patch that omits them.
+func TestProblemLabels(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+
+	id, err := s.CreateProblem(ctx, ProblemInput{
+		Title: "štítkovaný", Labels: []string{"analysis", "ux"},
+	}, nil, "jan", now)
+	if err != nil {
+		t.Fatalf("CreateProblem: %v", err)
+	}
+	p, err := s.GetProblem(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(p.Labels, []string{"ux", "analysis"}) {
+		t.Errorf("labels = %v, want the canonical [ux analysis]", p.Labels)
+	}
+
+	// An omitted set survives an edit of the other fields.
+	title := "přejmenovaný"
+	if err := s.UpdateProblem(ctx, id, ProblemPatch{Title: &title}, nil, "jan", now); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := s.GetProblem(ctx, id); !slices.Equal(p.Labels, []string{"ux", "analysis"}) {
+		t.Errorf("labels = %v after an unrelated patch, want them untouched", p.Labels)
+	}
+
+	// A given set replaces the whole set rather than adding to it.
+	only := []string{"analysis"}
+	if err := s.UpdateProblem(ctx, id, ProblemPatch{Labels: &only}, nil, "jan", now); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := s.GetProblem(ctx, id); !slices.Equal(p.Labels, []string{"analysis"}) {
+		t.Errorf("labels = %v, want only [analysis]", p.Labels)
+	}
+
+	// The empty set clears them, and the list view agrees with the detail.
+	none := []string{}
+	if err := s.UpdateProblem(ctx, id, ProblemPatch{Labels: &none}, nil, "jan", now); err != nil {
+		t.Fatal(err)
+	}
+	ps, err := s.ListProblems(ctx, ProblemFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ps) != 1 {
+		t.Fatalf("listed %d problems, want 1", len(ps))
+	}
+	if len(ps[0].Labels) != 0 {
+		t.Errorf("labels = %v after clearing, want none", ps[0].Labels)
+	}
+}
+
+// The cascade has to take the label rows with the problem: nothing else ever
+// deletes them, and the ids are reused by AUTOINCREMENT's successor at most
+// never — but an orphan row would still be a lie in the table.
+func TestDeleteProblemRemovesLabels(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	id, err := s.CreateProblem(ctx, ProblemInput{Title: "x", Labels: []string{"ux"}}, nil, "jan", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DeleteProblem(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := s.DB().QueryRow(`SELECT COUNT(*) FROM problem_labels`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("%d label rows survived the problem", n)
+	}
+}
+
+func TestNormalizeLabels(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []string
+		want []string
+		ok   bool
+	}{
+		{"none", nil, []string{}, true},
+		{"one", []string{"ux"}, []string{"ux"}, true},
+		{"reordered", []string{"analysis", "ux"}, []string{"ux", "analysis"}, true},
+		{"duplicated", []string{"ux", "ux"}, []string{"ux"}, true},
+		{"padded", []string{" ux "}, nil, false},
+		{"unknown", []string{"ux", "backend"}, nil, false},
+		{"wrong case", []string{"UX"}, nil, false},
+		{"empty value", []string{""}, nil, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, ok := NormalizeLabels(c.in)
+			if ok != c.ok {
+				t.Fatalf("ok = %v, want %v", ok, c.ok)
+			}
+			if ok && !slices.Equal(got, c.want) {
+				t.Errorf("= %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
+// The store normalises a set itself instead of trusting its caller: duplicates
+// collapse rather than breaking the primary key, and an unknown value is refused
+// rather than written and then hidden on every read.
+func TestCreateProblemNormalisesLabels(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	id, err := s.CreateProblem(ctx, ProblemInput{Title: "x", Labels: []string{"ux", "ux"}}, nil, "jan", now)
+	if err != nil {
+		t.Fatalf("CreateProblem with a duplicate: %v", err)
+	}
+	if p, _ := s.GetProblem(ctx, id); !slices.Equal(p.Labels, []string{"ux"}) {
+		t.Errorf("labels = %v, want [ux]", p.Labels)
+	}
+	if _, err := s.CreateProblem(ctx, ProblemInput{Title: "y", Labels: []string{"UX"}}, nil, "jan", now); err == nil {
+		t.Error("CreateProblem accepted a label outside the vocabulary")
 	}
 }

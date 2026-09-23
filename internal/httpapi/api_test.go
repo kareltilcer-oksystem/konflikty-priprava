@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -563,6 +564,147 @@ func TestPatchDistinguishesEmptyFromOmitted(t *testing.T) {
 	if got := decode[problemDetailDTO](t, rec); got.Link != "" {
 		t.Errorf("link = %q, want it cleared", got.Link)
 	}
+}
+
+// Labels are a closed set of two: any combination is accepted, anything else
+// is refused, and the order they arrive in does not reach the wire.
+func TestProblemLabels(t *testing.T) {
+	h := newHarness(t)
+	token := h.editor()
+
+	t.Run("create with both, in either order", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems",
+			`{"title":"oboje","labels":["analysis","ux"]}`, token)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, rec); !slices.Equal(got.Labels, []string{"ux", "analysis"}) {
+			t.Errorf("labels = %v, want [ux analysis]", got.Labels)
+		}
+	})
+
+	t.Run("create with none", func(t *testing.T) {
+		id := h.createProblem(token, "bez štítku")
+		got := decode[map[string]any](t, h.do(http.MethodGet, fmt.Sprintf("/api/problems/%d", id), nil, ""))
+		if v, ok := got["labels"].([]any); !ok || v == nil || len(v) != 0 {
+			t.Errorf("labels = %v, want an empty array", got["labels"])
+		}
+	})
+
+	t.Run("unknown label is refused", func(t *testing.T) {
+		for _, body := range []string{
+			`{"title":"x","labels":["backend"]}`,
+			`{"title":"x","labels":["UX"]}`,
+			`{"title":"x","labels":["ux","frontend"]}`,
+		} {
+			rec := h.doJSON(http.MethodPost, "/api/problems", body, token)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("%s = %d, want 400: %s", body, rec.Code, rec.Body.String())
+			}
+			if _, ok := decode[apiError](t, rec).Error.Details["labels"]; !ok {
+				t.Errorf("%s: the refusal does not name the labels field", body)
+			}
+		}
+	})
+
+	t.Run("patch replaces, omits and clears", func(t *testing.T) {
+		rec := h.doJSON(http.MethodPost, "/api/problems", `{"title":"x","labels":["ux"]}`, token)
+		id := decode[problemDetailDTO](t, rec).ID
+		path := fmt.Sprintf("/api/problems/%d", id)
+
+		// Omitted: untouched.
+		rec = h.doJSON(http.MethodPatch, path, `{"title":"y"}`, token)
+		if got := decode[problemDetailDTO](t, rec); !slices.Equal(got.Labels, []string{"ux"}) {
+			t.Errorf("labels = %v after an unrelated patch, want [ux]", got.Labels)
+		}
+		// Given: replaced whole.
+		rec = h.doJSON(http.MethodPatch, path, `{"labels":["analysis"]}`, token)
+		if got := decode[problemDetailDTO](t, rec); !slices.Equal(got.Labels, []string{"analysis"}) {
+			t.Errorf("labels = %v, want [analysis]", got.Labels)
+		}
+		// Empty: cleared.
+		rec = h.doJSON(http.MethodPatch, path, `{"labels":[]}`, token)
+		if got := decode[problemDetailDTO](t, rec); len(got.Labels) != 0 {
+			t.Errorf("labels = %v, want none", got.Labels)
+		}
+	})
+
+	// The form sends multipart, so the two shapes have to agree on the field.
+	t.Run("multipart carries the same set", func(t *testing.T) {
+		rec := h.postMultipart("/api/problems", token,
+			map[string]string{"title": "s přílohou", "labels": "ux,analysis"},
+			map[string][]byte{"a.png": []byte("1")}, "image/png")
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("= %d %s", rec.Code, rec.Body.String())
+		}
+		created := decode[problemDetailDTO](t, rec)
+		if !slices.Equal(created.Labels, []string{"ux", "analysis"}) {
+			t.Errorf("labels = %v, want [ux analysis]", created.Labels)
+		}
+
+		// An empty field is a present one: it clears the set, which is how the
+		// form unticks the last label.
+		body, contentType := multipartBody(t, map[string]string{"labels": ""}, nil, "")
+		req := httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/api/problems/%d", created.ID), body)
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Cookie", SessionCookie+"="+token)
+		w := httptest.NewRecorder()
+		h.handler.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("= %d %s", w.Code, w.Body.String())
+		}
+		if got := decode[problemDetailDTO](t, w); len(got.Labels) != 0 {
+			t.Errorf("labels = %v, want them cleared", got.Labels)
+		}
+
+		// An empty entry is refused here exactly as `["ux",""]` is in JSON.
+		rec = h.postMultipart("/api/problems", token,
+			map[string]string{"title": "x", "labels": "ux,"}, nil, "")
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("labels=ux, = %d, want 400: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	// A part per label is the other common way to send an array. The server
+	// would keep only the last one, so it refuses the request instead.
+	t.Run("a part per label is refused, not truncated", func(t *testing.T) {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		for _, f := range [][2]string{{"title", "x"}, {"labels", "ux"}, {"labels", "analysis"}} {
+			if err := mw.WriteField(f[0], f[1]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := mw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/api/problems", &buf)
+		req.Header.Set("Content-Type", mw.FormDataContentType())
+		req.Header.Set("Cookie", SessionCookie+"="+token)
+		w := httptest.NewRecorder()
+		h.handler.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("= %d, want 400: %s", w.Code, w.Body.String())
+		}
+	})
+
+	// A refused label is refused before the bytes are committed, like every
+	// other rejection on this endpoint.
+	t.Run("a refused label leaves no files behind", func(t *testing.T) {
+		before := h.countDir(h.cfg.AttachDir)
+		rec := h.postMultipart("/api/problems", token,
+			map[string]string{"title": "x", "labels": "backend"},
+			map[string][]byte{"snimek.png": []byte("PNG")}, "image/png")
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("= %d, want 400: %s", rec.Code, rec.Body.String())
+		}
+		if got := h.countDir(h.cfg.AttachDir); got != before {
+			t.Errorf("attachments directory grew from %d to %d", before, got)
+		}
+		if h.countDir(h.cfg.TmpDir) != 0 {
+			t.Errorf("staging was left dirty")
+		}
+	})
 }
 
 // done has its own admin-only endpoint and must not be settable through PATCH.
@@ -1333,7 +1475,7 @@ func TestEmptyCollectionsAreArrays(t *testing.T) {
 	}
 	id := h.createProblem(admin, "x")
 	pd := decode[map[string]any](t, h.do(http.MethodGet, fmt.Sprintf("/api/problems/%d", id), nil, ""))
-	for _, key := range []string{"attachments", "meetings"} {
+	for _, key := range []string{"attachments", "meetings", "labels"} {
 		if v, ok := pd[key].([]any); !ok || v == nil {
 			t.Errorf("%s = %v, want an empty array", key, pd[key])
 		}
