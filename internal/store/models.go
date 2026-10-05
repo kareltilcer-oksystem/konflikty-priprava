@@ -131,6 +131,17 @@ type ProblemMeetingRef struct {
 	ActionNote  string
 }
 
+// PreviousAction is one earlier agenda's outcome note for a problem: the note
+// and enough of its meeting to label and link it. Its own type rather than a
+// partly filled ProblemMeetingRef, so no field is silently left at zero.
+type PreviousAction struct {
+	ItemID      int64
+	MeetingID   int64
+	Slug        string
+	MeetingDate string
+	ActionNote  string
+}
+
 // SortKey selects the bucket's ordering.
 type SortKey string
 

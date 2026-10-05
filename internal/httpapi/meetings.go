@@ -141,8 +141,8 @@ func (a *API) deleteMeeting(w http.ResponseWriter, r *http.Request) {
 }
 
 // meetingDetail assembles a meeting with its ordered agenda, each item carrying
-// its problem and that problem's attachments, so the page renders in one round
-// trip.
+// its problem, that problem's attachments and its action notes from earlier
+// meetings, so the page renders in one round trip.
 func (a *API) meetingDetail(r *http.Request, meetingSlug string) (meetingDetailDTO, error) {
 	ctx := r.Context()
 	m, err := a.store.GetMeetingBySlug(ctx, meetingSlug)
@@ -157,35 +157,9 @@ func (a *API) meetingDetail(r *http.Request, meetingSlug string) (meetingDetailD
 	if err != nil {
 		return meetingDetailDTO{}, err
 	}
-
-	problemIDs := make([]int64, 0, len(items))
-	for _, it := range items {
-		problemIDs = append(problemIDs, it.ProblemID)
-	}
-	problems, err := a.store.ProblemsByIDs(ctx, problemIDs)
+	out, err := a.itemDTOs(r, items)
 	if err != nil {
 		return meetingDetailDTO{}, err
-	}
-	// One query for every item's files, rather than one per item.
-	attachments, err := a.store.AttachmentsByProblems(ctx, problemIDs)
-	if err != nil {
-		return meetingDetailDTO{}, err
-	}
-
-	out := make([]meetingItemDTO, 0, len(items))
-	for _, it := range items {
-		p, ok := problems[it.ProblemID]
-		if !ok {
-			// A cascade would have removed the item along with the problem, so
-			// this cannot happen; skip rather than render a hole.
-			slog.Error("agenda item references a missing problem", "item", it.ID, "problem", it.ProblemID)
-			continue
-		}
-		out = append(out, meetingItemDTO{
-			ID: it.ID, MeetingID: it.MeetingID, ProblemID: it.ProblemID,
-			Position: it.Position, PrepNote: it.PrepNote, ActionNote: it.ActionNote,
-			Problem: toProblemWithAttachments(p, attachments[it.ProblemID]),
-		})
 	}
 	return meetingDetailDTO{meetingDTO: head, Items: out}, nil
 }

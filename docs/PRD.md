@@ -323,7 +323,8 @@ on `meetings.slug` or handing a `-2` suffix to two meetings a year apart. The de
 - **FR-M6** — The admin edits `prep_note` and `action_note` inline on each agenda item.
 - **FR-M7** — The admin can remove an item from the agenda; this does not affect the problem.
 - **FR-M8** — The meeting page shows the meeting `note` above the agenda, and per item: order
-  number, title, description, link, attachments, `prep_note`, `action_note`, done indicator.
+  number, title, description, link, attachments, `prep_note`, `action_note`, done indicator,
+  and read-only the non-empty `action_note`s the problem collected on earlier meetings.
 - **FR-M9** — Meetings whose date is more than `ARCHIVE_AFTER_DAYS` (365) in the past drop
   out of the default meeting list, behind a *Zobrazit archiv* toggle. Archiving is purely a
   view filter derived from the date: nothing is moved, nothing is deleted, and **direct URLs

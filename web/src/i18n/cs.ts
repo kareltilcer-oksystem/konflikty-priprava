@@ -138,6 +138,9 @@ export const cs = {
     prepNotePlaceholder: 'Co k tomu chceme na poradě říct',
     actionNote: 'Akce / výsledek',
     actionNotePlaceholder: 'Doplní se po poradě',
+    previousActions: 'Akce / výsledek z předchozích porad',
+    showOlderPreviousActions: (n: number) =>
+      `Zobrazit ${n} ${plural(n, 'starší záznam', 'starší záznamy', 'starších záznamů')}`,
     editDate: 'Upravit datum',
     saveDate: 'Uložit',
     addProblems: 'Přidat problémy',

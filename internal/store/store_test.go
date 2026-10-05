@@ -537,6 +537,63 @@ func TestNotesAreStoredPerAppearance(t *testing.T) {
 	}
 }
 
+// PreviousActions returns, per problem, the notes from meetings before the
+// given one — by date, then by creation on the same day — oldest first, with
+// empty notes left out. A whitespace-only note is stored empty, so it is too.
+func TestPreviousActions(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	p := mustProblem(t, s, "recurring")
+	other := mustProblem(t, s, "other")
+	cur := mustMeeting(t, s, "2026-09-18")
+	sameDay := mustMeeting(t, s, "2026-09-18") // created after cur, so after it
+	early := mustMeeting(t, s, "2026-08-21")
+	blank := mustMeeting(t, s, "2026-09-04")
+
+	setNote := func(m Meeting, problemID int64, note string) MeetingItem {
+		t.Helper()
+		items, err := s.AddItems(ctx, m.Slug, []int64{problemID}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		it, err := s.UpdateItem(ctx, m.Slug, items[0].ID, ItemPatch{ActionNote: &note})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return it
+	}
+	earlyItem := setNote(early, p, "napred")
+	if it := setNote(blank, p, " \n\t "); it.ActionNote != "" {
+		t.Errorf("whitespace-only note stored as %q, want empty", it.ActionNote)
+	}
+	curItem := setNote(cur, p, "ted")
+	setNote(sameDay, p, "pozdeji")
+	setNote(early, other, "jine")
+
+	got, err := s.PreviousActions(ctx, cur.ID, []int64{p, other})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got[p]) != 1 {
+		t.Fatalf("from %s: %d previous actions, want 1: %+v", cur.Slug, len(got[p]), got[p])
+	}
+	if a := got[p][0]; a.ItemID != earlyItem.ID || a.MeetingID != early.ID || a.Slug != early.Slug ||
+		a.MeetingDate != "2026-08-21" || a.ActionNote != "napred" {
+		t.Errorf("from %s: previous action = %+v", cur.Slug, a)
+	}
+	if len(got[other]) != 1 || got[other][0].ActionNote != "jine" {
+		t.Errorf("from %s, other problem: previous actions = %+v, want its own note only", cur.Slug, got[other])
+	}
+
+	got, err = s.PreviousActions(ctx, sameDay.ID, []int64{p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got[p]) != 2 || got[p][0].ItemID != earlyItem.ID || got[p][1].ItemID != curItem.ID {
+		t.Errorf("from %s: previous actions = %+v, want %s then %s", sameDay.Slug, got[p], early.Slug, cur.Slug)
+	}
+}
+
 func TestSessions(t *testing.T) {
 	ctx := context.Background()
 	s := newStore(t)

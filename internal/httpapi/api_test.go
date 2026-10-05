@@ -805,6 +805,227 @@ func TestProblemDetailCarriesTheTimeline(t *testing.T) {
 	}
 }
 
+// Each agenda item carries the action notes its problem collected on earlier
+// meetings — and only earlier ones, and only notes that say something.
+func TestAgendaItemCarriesPreviousActions(t *testing.T) {
+	h := newHarness(t)
+	admin := h.admin()
+	id := h.createProblem(admin, "Opakovaný problém")
+	fresh := h.createProblem(admin, "Nový problém")
+
+	// Created out of date order on purpose: "earlier" means by meeting date.
+	current := h.createMeeting(admin, "2026-09-04")
+	later := h.createMeeting(admin, "2026-09-18")
+	early := h.createMeeting(admin, "2026-08-07")
+	blank := h.createMeeting(admin, "2026-08-21")
+	notes := map[string]string{
+		early.Slug:   "Domluveno: přepsat validaci",
+		blank.Slug:   "  \n ",
+		current.Slug: "Hotovo na testu",
+		later.Slug:   "Nasazeno",
+	}
+
+	itemIDs := map[string]int64{}
+	for _, m := range []meetingDetailDTO{current, later, early, blank} {
+		rec := h.doJSON(http.MethodPost, "/api/meetings/"+m.Slug+"/items",
+			fmt.Sprintf(`{"problem_ids":[%d]}`, id), admin)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("add to %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+		itemIDs[m.Slug] = decode[[]meetingItemDTO](t, rec)[0].ID
+	}
+	for slugValue, note := range notes {
+		rec := h.doJSON(http.MethodPatch,
+			fmt.Sprintf("/api/meetings/%s/items/%d", slugValue, itemIDs[slugValue]),
+			fmt.Sprintf(`{"action_note":%q}`, note), admin)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("set note on %s: %d %s", slugValue, rec.Code, rec.Body.String())
+		}
+	}
+	rec := h.doJSON(http.MethodPost, "/api/meetings/"+current.Slug+"/items",
+		fmt.Sprintf(`{"problem_ids":[%d]}`, fresh), admin)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("add fresh problem: %d %s", rec.Code, rec.Body.String())
+	}
+
+	previousOf := func(slugValue string) map[int64][]previousActionDTO {
+		t.Helper()
+		got := decode[meetingDetailDTO](t, h.do(http.MethodGet, "/api/meetings/"+slugValue, nil, ""))
+		out := map[int64][]previousActionDTO{}
+		for _, it := range got.Items {
+			if it.PreviousActions == nil {
+				t.Errorf("%s: previous_actions of problem %d is null, want an array", slugValue, it.ProblemID)
+			}
+			out[it.ProblemID] = it.PreviousActions
+		}
+		return out
+	}
+
+	// The blank note is skipped, the later meeting is not "previous", and the
+	// meeting's own note is not repeated.
+	cur := previousOf(current.Slug)
+	if len(cur[id]) != 1 {
+		t.Fatalf("current meeting: %d previous actions, want 1: %+v", len(cur[id]), cur[id])
+	}
+	if p := cur[id][0]; p.Slug != early.Slug || p.ActionNote != notes[early.Slug] || p.ISOWeek != 32 ||
+		p.ISOYear != 2026 || p.MeetingDate != "2026-08-07" || p.ItemID != itemIDs[early.Slug] {
+		t.Errorf("current meeting: previous action = %+v", p)
+	}
+	if len(cur[fresh]) != 0 {
+		t.Errorf("a problem new to the agenda has previous actions: %+v", cur[fresh])
+	}
+
+	// Oldest first.
+	lat := previousOf(later.Slug)[id]
+	if len(lat) != 2 || lat[0].Slug != early.Slug || lat[1].Slug != current.Slug {
+		t.Errorf("later meeting: previous actions = %+v, want %s then %s", lat, early.Slug, current.Slug)
+	}
+
+	if got := previousOf(early.Slug)[id]; len(got) != 0 {
+		t.Errorf("the first meeting has previous actions: %+v", got)
+	}
+
+	// Item responses carry the same field, so every MeetingItem has one shape.
+	rec = h.doJSON(http.MethodPatch,
+		fmt.Sprintf("/api/meetings/%s/items/%d", current.Slug, itemIDs[current.Slug]), `{"prep_note":"x"}`, admin)
+	if got := decode[meetingItemDTO](t, rec).PreviousActions; len(got) != 1 || got[0].Slug != early.Slug {
+		t.Errorf("PATCH response: previous actions = %+v", got)
+	}
+}
+
+// Two meetings on one day are ordered by creation, as on the timeline.
+func TestPreviousActionsOnTheSameDay(t *testing.T) {
+	h := newHarness(t)
+	admin := h.admin()
+	id := h.createProblem(admin, "Problém")
+	first := h.createMeeting(admin, "2026-09-18")
+	second := h.createMeeting(admin, "2026-09-18")
+
+	itemIDs := map[string]int64{}
+	for _, m := range []meetingDetailDTO{first, second} {
+		rec := h.doJSON(http.MethodPost, "/api/meetings/"+m.Slug+"/items",
+			fmt.Sprintf(`{"problem_ids":[%d]}`, id), admin)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("add to %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+		itemIDs[m.Slug] = decode[[]meetingItemDTO](t, rec)[0].ID
+		rec = h.doJSON(http.MethodPatch, fmt.Sprintf("/api/meetings/%s/items/%d", m.Slug, itemIDs[m.Slug]),
+			fmt.Sprintf(`{"action_note":"akce z %s"}`, m.Slug), admin)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("set note on %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+	}
+
+	got := decode[meetingDetailDTO](t, h.do(http.MethodGet, "/api/meetings/"+second.Slug, nil, ""))
+	if p := got.Items[0].PreviousActions; len(p) != 1 || p[0].Slug != first.Slug {
+		t.Errorf("second meeting of the day: previous actions = %+v, want %s", p, first.Slug)
+	}
+	got = decode[meetingDetailDTO](t, h.do(http.MethodGet, "/api/meetings/"+first.Slug, nil, ""))
+	if p := got.Items[0].PreviousActions; len(p) != 0 {
+		t.Errorf("first meeting of the day: previous actions = %+v, want none", p)
+	}
+}
+
+// A previous action's week label follows ISO rules, not the calendar year:
+// 1 January 2027 is a Friday in week 53 of 2026.
+func TestPreviousActionsAcrossTheISOYear(t *testing.T) {
+	h := newHarness(t)
+	admin := h.admin()
+	id := h.createProblem(admin, "Problém")
+	newYear := h.createMeeting(admin, "2027-01-01")
+	next := h.createMeeting(admin, "2027-01-08")
+
+	for _, m := range []meetingDetailDTO{newYear, next} {
+		rec := h.doJSON(http.MethodPost, "/api/meetings/"+m.Slug+"/items",
+			fmt.Sprintf(`{"problem_ids":[%d]}`, id), admin)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("add to %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+		if m.Slug != newYear.Slug {
+			continue
+		}
+		itemID := decode[[]meetingItemDTO](t, rec)[0].ID
+		rec = h.doJSON(http.MethodPatch, fmt.Sprintf("/api/meetings/%s/items/%d", m.Slug, itemID),
+			`{"action_note":"novoroční akce"}`, admin)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("set note on %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+	}
+
+	got := decode[meetingDetailDTO](t, h.do(http.MethodGet, "/api/meetings/"+next.Slug, nil, ""))
+	p := got.Items[0].PreviousActions
+	if len(p) != 1 || p[0].ISOYear != 2026 || p[0].ISOWeek != 53 || p[0].MeetingDate != "2027-01-01" {
+		t.Errorf("previous actions = %+v, want one from week 53 of 2026 dated 2027-01-01", p)
+	}
+}
+
+// "Earlier" follows the meeting date, not the frozen slug or creation order, so
+// moving a meeting's date moves which notes count as previous. The add and
+// reorder responses carry the field as well.
+func TestPreviousActionsFollowTheMeetingDate(t *testing.T) {
+	h := newHarness(t)
+	admin := h.admin()
+	id := h.createProblem(admin, "Problém")
+	other := h.createProblem(admin, "Jiný problém")
+	a := h.createMeeting(admin, "2026-09-04")
+	b := h.createMeeting(admin, "2026-09-18")
+
+	for _, m := range []meetingDetailDTO{a, b} {
+		rec := h.doJSON(http.MethodPost, "/api/meetings/"+m.Slug+"/items",
+			fmt.Sprintf(`{"problem_ids":[%d]}`, id), admin)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("add to %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+		itemID := decode[[]meetingItemDTO](t, rec)[0].ID
+		rec = h.doJSON(http.MethodPatch, fmt.Sprintf("/api/meetings/%s/items/%d", m.Slug, itemID),
+			fmt.Sprintf(`{"action_note":"akce z %s"}`, m.Slug), admin)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("set note on %s: %d %s", m.Slug, rec.Code, rec.Body.String())
+		}
+	}
+
+	// A is moved after B: B's note is now the previous one on A, and B has none.
+	rec := h.doJSON(http.MethodPatch, "/api/meetings/"+a.Slug, `{"meeting_date":"2026-09-25"}`, admin)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("move %s: %d %s", a.Slug, rec.Code, rec.Body.String())
+	}
+	if p := decode[meetingDetailDTO](t, rec).Items[0].PreviousActions; len(p) != 1 || p[0].Slug != b.Slug {
+		t.Errorf("moved meeting: previous actions = %+v, want %s", p, b.Slug)
+	}
+	got := decode[meetingDetailDTO](t, h.do(http.MethodGet, "/api/meetings/"+b.Slug, nil, ""))
+	if p := got.Items[0].PreviousActions; len(p) != 0 {
+		t.Errorf("meeting now first: previous actions = %+v, want none", p)
+	}
+
+	// The add response: an empty array for a problem with no history, never null.
+	rec = h.doJSON(http.MethodPost, "/api/meetings/"+a.Slug+"/items",
+		fmt.Sprintf(`{"problem_ids":[%d]}`, other), admin)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("add other problem: %d %s", rec.Code, rec.Body.String())
+	}
+	added := decode[[]meetingItemDTO](t, rec)
+	if added[0].PreviousActions == nil || len(added[0].PreviousActions) != 0 {
+		t.Errorf("add response: previous actions = %#v, want []", added[0].PreviousActions)
+	}
+
+	// The reorder response.
+	detail := decode[meetingDetailDTO](t, h.do(http.MethodGet, "/api/meetings/"+a.Slug, nil, ""))
+	ob, _ := json.Marshal(map[string][]int64{"item_ids": {detail.Items[1].ID, detail.Items[0].ID}})
+	rec = h.doJSON(http.MethodPut, "/api/meetings/"+a.Slug+"/items/order", string(ob), admin)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reorder: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, it := range decode[[]meetingItemDTO](t, rec) {
+		want := 0
+		if it.ProblemID == id {
+			want = 1
+		}
+		if it.PreviousActions == nil || len(it.PreviousActions) != want {
+			t.Errorf("reorder response, problem %d: previous actions = %#v, want %d", it.ProblemID, it.PreviousActions, want)
+		}
+	}
+}
+
 func TestMeetingSlugsAndDerivedFields(t *testing.T) {
 	h := newHarness(t)
 	admin := h.admin()

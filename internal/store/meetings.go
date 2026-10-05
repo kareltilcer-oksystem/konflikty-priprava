@@ -76,6 +76,7 @@ func (s *Store) CreateMeeting(ctx context.Context, date time.Time, note, by stri
 	ts := rfc3339(now)
 	dateStr := timeutil.FormatDate(date)
 	base := slug.Base(date)
+	note = blankToEmpty(note)
 
 	var created Meeting
 	const maxAttempts = 10
@@ -147,7 +148,7 @@ func (s *Store) UpdateMeeting(ctx context.Context, meetingSlug string, patch Mee
 		}
 		if patch.Note != nil {
 			sets = append(sets, "note = ?")
-			args = append(args, *patch.Note)
+			args = append(args, blankToEmpty(*patch.Note))
 		}
 		if len(sets) > 0 {
 			query := "UPDATE meetings SET " + joinComma(sets) + " WHERE id = ?"

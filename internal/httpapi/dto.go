@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/kareltilcer-oksystem/konflikty-priprava/internal/auth"
@@ -102,6 +103,20 @@ type meetingItemDTO struct {
 	PrepNote   string                    `json:"prep_note"`
 	ActionNote string                    `json:"action_note"`
 	Problem    problemWithAttachmentsDTO `json:"problem"`
+	// The problem's non-empty action notes from earlier agendas, oldest first;
+	// [] when there are none.
+	PreviousActions []previousActionDTO `json:"previous_actions"`
+}
+
+// previousActionDTO is one earlier meeting's outcome for an agenda item's
+// problem: just the note and enough of its meeting to label and link it.
+type previousActionDTO struct {
+	ItemID      int64  `json:"item_id"`
+	Slug        string `json:"slug"`
+	MeetingDate string `json:"meeting_date"`
+	ISOYear     int    `json:"iso_year"`
+	ISOWeek     int    `json:"iso_week"`
+	ActionNote  string `json:"action_note"`
 }
 
 func toProblem(p store.Problem) problemDTO {
@@ -174,15 +189,45 @@ func toMeeting(m store.Meeting, now time.Time, archiveAfterDays int) (meetingDTO
 	}, nil
 }
 
-func toProblemMeetingRef(r store.ProblemMeetingRef) (problemMeetingRefDTO, error) {
-	date, err := timeutil.ParseDate(r.MeetingDate)
+// meetingWeek derives the ISO year and week of a stored meeting date, for the
+// references to a meeting that carry its label but not the whole meeting.
+func meetingWeek(meetingSlug, meetingDate string) (year, week int, err error) {
+	date, err := timeutil.ParseDate(meetingDate)
 	if err != nil {
-		return problemMeetingRefDTO{}, fmt.Errorf("meeting %s has an unreadable date: %w", r.Slug, err)
+		return 0, 0, fmt.Errorf("meeting %s has an unreadable date: %w", meetingSlug, err)
 	}
-	year, week := slug.ISOWeek(date)
+	year, week = slug.ISOWeek(date)
+	return year, week, nil
+}
+
+func toProblemMeetingRef(r store.ProblemMeetingRef) (problemMeetingRefDTO, error) {
+	year, week, err := meetingWeek(r.Slug, r.MeetingDate)
+	if err != nil {
+		return problemMeetingRefDTO{}, err
+	}
 	return problemMeetingRefDTO{
 		ItemID: r.ItemID, Slug: r.Slug, MeetingDate: r.MeetingDate,
 		ISOYear: year, ISOWeek: week, Position: r.Position,
 		PrepNote: r.PrepNote, ActionNote: r.ActionNote,
 	}, nil
+}
+
+// toPreviousActions renders an agenda item's earlier action notes.
+//
+// A note whose meeting has an unreadable date is logged and left out rather
+// than failed: it belongs to another agenda, and must not take this one down.
+func toPreviousActions(actions []store.PreviousAction) []previousActionDTO {
+	out := make([]previousActionDTO, 0, len(actions))
+	for _, a := range actions {
+		year, week, err := meetingWeek(a.Slug, a.MeetingDate)
+		if err != nil {
+			slog.Error("skip previous action note", "item", a.ItemID, "err", err)
+			continue
+		}
+		out = append(out, previousActionDTO{
+			ItemID: a.ItemID, Slug: a.Slug, MeetingDate: a.MeetingDate,
+			ISOYear: year, ISOWeek: week, ActionNote: a.ActionNote,
+		})
+	}
+	return out
 }
