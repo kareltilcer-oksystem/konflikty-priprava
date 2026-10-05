@@ -34,7 +34,7 @@ import {
 import { ApiError } from '../../api/client'
 import type { MeetingDetail, MeetingItem, User } from '../../api/types'
 import { cs, itemCount } from '../../i18n/cs'
-import { displayLink, formatDate, formatSize, meetingTitle, safeLink } from '../../lib/format'
+import { displayLink, formatDate, formatSize, meetingTitle, safeLink, weekLabel } from '../../lib/format'
 import { attachmentKind } from '../../lib/format'
 import { AttachmentStrip } from '../../components/Attachments'
 import { ChevronLeftIcon, CheckIcon, CloseIcon, DragHandleIcon, PlusIcon, SortArrowsIcon } from '../../components/Icons'
@@ -58,6 +58,12 @@ export function MeetingPage({ user }: { user: User | null }) {
   const navigate = useNavigate()
   const { data: meeting, isPending, error } = useMeeting(slug)
 
+  // A previous-action link moves to another meeting on this same route; open
+  // it at the top, not at the offset the last agenda was scrolled to.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [slug])
+
   const isAdmin = user?.role === 'admin'
 
   if (isPending) return <Spinner />
@@ -76,10 +82,13 @@ export function MeetingPage({ user }: { user: User | null }) {
   // requires every note expanded, so print renders the projected view instead.
   // The admin is also the person most likely to press Ctrl+P, to carry the
   // agenda into the room.
+  //
+  // Keyed by slug: a previous-action link or Back moves between meetings on
+  // this same route, and the date editor and local order must not carry over.
   return (
     <>
       <div className="print-hide">
-        <AdminAgenda meeting={meeting} onDeleted={() => navigate('/porady')} />
+        <AdminAgenda key={meeting.slug} meeting={meeting} onDeleted={() => navigate('/porady')} />
       </div>
       <div className="print-only">
         <ProjectedAgenda meeting={meeting} />
@@ -137,6 +146,9 @@ function ProjectedAgenda({ meeting }: { meeting: MeetingDetail }) {
 function ProjectedItem({ item, number, first }: { item: MeetingItem; number: number; first: boolean }) {
   const p = item.problem
   const link = safeLink(p.link)
+  // Every earlier outcome, as on the admin screen: the projection and the
+  // handout must not show less than the editor does (FR-R1, FR-R3).
+  const previous = item.previous_actions
 
   return (
     <div
@@ -247,7 +259,7 @@ function ProjectedItem({ item, number, first }: { item: MeetingItem; number: num
           </>
         )}
 
-        {(item.prep_note || item.action_note) && (
+        {(item.prep_note || previous.length > 0 || item.action_note) && (
           <div className="mt-5 rounded-[10px] border border-line bg-surface-sunken px-5 py-4 print:mt-[9px] print:border-0 print:bg-transparent print:p-0">
             {item.prep_note && (
               <>
@@ -261,8 +273,31 @@ function ProjectedItem({ item, number, first }: { item: MeetingItem; number: num
               </>
             )}
 
+            {/* Earlier outcomes sit just above this week's, so the outcomes
+                read top to bottom in the order they happened. */}
+            {previous.length > 0 && (
+              <div className="mt-4 border-t border-surface-tile pt-[14px] first:mt-0 first:border-t-0 first:pt-0 print:mt-[5px] print:border-0 print:pt-0">
+                <div className="text-[13px] font-medium uppercase leading-none tracking-[0.08em] text-faint print:hidden">
+                  {cs.agenda.previousActions}
+                </div>
+                {previous.map((a) => (
+                  <div key={a.item_id} className="mt-[10px] print:mt-0">
+                    <div className="text-[15px] leading-[1.4] text-muted print:hidden">
+                      {weekLabel(a.iso_week)} · {formatDate(a.meeting_date)}
+                    </div>
+                    <div className="print-full mt-1 whitespace-pre-line text-[18px] leading-[1.55] text-secondary print:mt-0 print:text-[10pt] print:text-black">
+                      <span className="print-only font-semibold">
+                        {cs.agenda.actionNote} ({weekLabel(a.iso_week)}, {formatDate(a.meeting_date)}):{' '}
+                      </span>
+                      {a.action_note}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {item.action_note && (
-              <div className="mt-4 border-t border-surface-tile pt-[14px] print:mt-[5px] print:border-0 print:pt-0">
+              <div className="mt-4 border-t border-surface-tile pt-[14px] first:mt-0 first:border-t-0 first:pt-0 print:mt-[5px] print:border-0 print:pt-0">
                 <div className="text-[13px] font-medium uppercase leading-none tracking-[0.08em] text-faint print:hidden">
                   {cs.agenda.actionNote}
                 </div>
@@ -721,6 +756,8 @@ function NoteEditors({ item, slug }: { item: MeetingItem; slug: string }) {
         />
       </div>
 
+      <PreviousActions item={item} />
+
       <div className="mt-[9px] flex items-start gap-[9px] border-l-2 border-line-soft pl-[11px]">
         <span className="whitespace-nowrap text-[11px] font-medium uppercase leading-[1.9] tracking-[0.06em] text-faint">
           {cs.agenda.actionNote}
@@ -738,5 +775,61 @@ function NoteEditors({ item, slug }: { item: MeetingItem; slug: string }) {
         />
       </div>
     </>
+  )
+}
+
+/** How many earlier outcomes the admin sees before expanding the rest. */
+const ADMIN_PREVIOUS_VISIBLE = 3
+
+/**
+ * What came of this problem at earlier meetings, read-only.
+ *
+ * Each note belongs to the agenda it was written on and is edited there; here
+ * it is context, sitting in the same quiet rule as this week's action note so
+ * the outcomes read as one column, oldest first. Only the latest few show
+ * until asked for, so a long-running problem does not bury this week's editor.
+ */
+function PreviousActions({ item }: { item: MeetingItem }) {
+  const [expanded, setExpanded] = useState(false)
+  const all = item.previous_actions
+  if (all.length === 0) return null
+
+  const shown = expanded ? all : all.slice(-ADMIN_PREVIOUS_VISIBLE)
+  const hidden = all.length - shown.length
+
+  return (
+    <div className="mt-[9px] border-l-2 border-line-soft pl-[11px]">
+      <div className="text-[11px] font-medium uppercase leading-[1.9] tracking-[0.06em] text-faint">
+        {cs.agenda.previousActions}
+      </div>
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-[2px] text-[12px] leading-[1.6] text-primary hover:underline focus-ring"
+        >
+          {cs.agenda.showOlderPreviousActions(hidden)}
+        </button>
+      )}
+      <div className="mt-[2px] flex flex-col gap-[6px]">
+        {shown.map((a) => (
+          <div key={a.item_id} className="flex items-baseline gap-[9px]">
+            {/* The date carries the year, so two week 36s a year apart differ. */}
+            <span className="whitespace-nowrap text-[12px] leading-[1.6]">
+              <Link
+                to={`/porada/${a.slug}`}
+                className="font-medium text-primary no-underline hover:underline"
+              >
+                {weekLabel(a.iso_week)}
+              </Link>
+              <span className="ml-[6px] text-muted">{formatDate(a.meeting_date)}</span>
+            </span>
+            <span className="min-w-0 flex-1 whitespace-pre-line text-[13px] leading-[1.6] text-secondary">
+              {a.action_note}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

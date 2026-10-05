@@ -211,11 +211,11 @@ func (s *Store) UpdateItem(ctx context.Context, meetingSlug string, itemID int64
 		var args []any
 		if patch.PrepNote != nil {
 			sets = append(sets, "prep_note = ?")
-			args = append(args, *patch.PrepNote)
+			args = append(args, blankToEmpty(*patch.PrepNote))
 		}
 		if patch.ActionNote != nil {
 			sets = append(sets, "action_note = ?")
-			args = append(args, *patch.ActionNote)
+			args = append(args, blankToEmpty(*patch.ActionNote))
 		}
 		if len(sets) > 0 {
 			args = append(args, itemID, meetingID)
@@ -299,6 +299,50 @@ func (s *Store) ProblemMeetingRefs(ctx context.Context, problemID int64) ([]Prob
 			return nil, fmt.Errorf("scan meeting reference: %w", err)
 		}
 		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// PreviousActions returns, per problem, the action notes the given problems
+// collected on agendas held before meetingID, oldest first.
+//
+// "Before" follows the timeline's own order — meeting date, then id for two
+// meetings on one day — so an agenda shows exactly the entries that precede it
+// on the problem detail page. Empty notes are left out: the meeting page shows
+// what came of each earlier discussion, and an empty one says nothing. Writes
+// store a whitespace-only note as "", so testing for "" is enough.
+//
+// One query for the whole agenda, like AttachmentsByProblems.
+func (s *Store) PreviousActions(ctx context.Context, meetingID int64, problemIDs []int64) (map[int64][]PreviousAction, error) {
+	out := make(map[int64][]PreviousAction, len(problemIDs))
+	if len(problemIDs) == 0 {
+		return out, nil
+	}
+	args := make([]any, 0, len(problemIDs)+1)
+	args = append(args, meetingID)
+	for _, id := range problemIDs {
+		args = append(args, id)
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT i.problem_id, i.id, m.id, m.slug, m.meeting_date, i.action_note
+		  FROM meeting_items i
+		  JOIN meetings m   ON m.id = i.meeting_id
+		  JOIN meetings cur ON cur.id = ?
+		 WHERE (m.meeting_date < cur.meeting_date OR (m.meeting_date = cur.meeting_date AND m.id < cur.id))
+		   AND i.action_note <> ''
+		   AND i.problem_id IN (`+placeholders(len(problemIDs))+`)
+		 ORDER BY i.problem_id, m.meeting_date ASC, m.id ASC`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list previous action notes: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var problemID int64
+		var a PreviousAction
+		if err := rows.Scan(&problemID, &a.ItemID, &a.MeetingID, &a.Slug, &a.MeetingDate, &a.ActionNote); err != nil {
+			return nil, fmt.Errorf("scan previous action note: %w", err)
+		}
+		out[problemID] = append(out[problemID], a)
 	}
 	return out, rows.Err()
 }

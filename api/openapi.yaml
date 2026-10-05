@@ -904,8 +904,9 @@ components:
     ProblemWithAttachments:
       description: |
         A problem plus its files, without the cross-meeting timeline. This is what an agenda
-        entry embeds: FR-M8 renders title, description, link, attachments and the two notes,
-        and nothing on the meeting page reads the timeline.
+        entry embeds: FR-M8 renders title, description, link, attachments and the two notes.
+        The only history the meeting page shows is the earlier action notes, which travel
+        beside this object as the item's own `previous_actions`, not the full timeline.
       allOf:
         - $ref: '#/components/schemas/Problem'
         - type: object
@@ -1050,7 +1051,7 @@ components:
 
     MeetingItem:
       type: object
-      required: [id, meeting_id, problem_id, position, prep_note, action_note, problem]
+      required: [id, meeting_id, problem_id, position, prep_note, action_note, problem, previous_actions]
       properties:
         id: { type: integer, format: int64 }
         meeting_id: { type: integer, format: int64 }
@@ -1075,10 +1076,32 @@ components:
             item, and would make a drag-and-drop drop re-download each problem's full history
             through the `PUT .../items/order` response. The timeline belongs on the problem
             detail page, which is what `GET /problems/{problemId}` is for.
+        previous_actions:
+          type: array
+          description: |
+            The problem's `action_note`s from agendas held **before** this one, oldest first —
+            what came of each earlier discussion, shown read-only under the item. "Before"
+            follows the timeline's order: by `meeting_date`, and by creation for two meetings on
+            the same day. Blank notes are left out, and so is this meeting's own note, which is
+            `action_note` above. Empty when there are none, never null.
+          items: { $ref: '#/components/schemas/PreviousAction' }
+
+    PreviousAction:
+      type: object
+      required: [item_id, slug, meeting_date, iso_year, iso_week, action_note]
+      properties:
+        item_id: { type: integer, format: int64, description: The earlier agenda entry the note belongs to. }
+        slug: { type: string, example: 2026-w36 }
+        meeting_date: { type: string, format: date }
+        iso_year: { type: integer, example: 2026 }
+        iso_week: { type: integer, example: 36 }
+        action_note: { type: string }
 
     MeetingItemUpdate:
       type: object
-      description: Omitted fields are left unchanged.
+      description: |
+        Omitted fields are left unchanged. A note of bare whitespace is stored as the empty
+        string, as is a meeting's `note`, so a client tests for `""` alone.
       properties:
         prep_note: { type: string }
         action_note: { type: string }

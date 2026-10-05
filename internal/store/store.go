@@ -101,6 +101,15 @@ func placeholders(n int) string {
 	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
 }
 
+// blankToEmpty stores a note of bare whitespace as the empty string, so every
+// reader tests for "" alone instead of each deciding again what counts as blank.
+func blankToEmpty(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return ""
+	}
+	return s
+}
+
 // nullString converts a nullable column into a *string for the wire.
 func nullString(ns sql.NullString) *string {
 	if !ns.Valid {

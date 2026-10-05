@@ -85,6 +85,16 @@ export interface Meeting {
   created_by: string
 }
 
+/** An action note the item's problem collected on an earlier agenda. */
+export interface PreviousAction {
+  item_id: number
+  slug: string
+  meeting_date: string
+  iso_year: number
+  iso_week: number
+  action_note: string
+}
+
 export interface MeetingItem {
   id: number
   meeting_id: number
@@ -93,6 +103,8 @@ export interface MeetingItem {
   prep_note: string
   action_note: string
   problem: ProblemWithAttachments
+  /** Earlier meetings only, oldest first, blank notes left out; possibly empty. */
+  previous_actions: PreviousAction[]
 }
 
 export interface MeetingDetail extends Meeting {
